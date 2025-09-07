@@ -1,0 +1,99 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+package-lock.json
+yarn.lock
+.pnpm-debug.log
+
+# Next.js/React/Typescript
+.next/
+out/
+dist/
+build/
+.cache/
+*.tsbuildinfo
+
+# Tailwind
+.tailwind*
+*.css.d.ts
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+*.pyo
+*.pyd
+*.pycache/
+*.egg-info/
+.eggs/
+*.log
+*.pot
+*.mo
+*.sqlite3
+*.db
+*.db-journal
+*.mypy_cache/
+*.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.env
+.venv/
+venv/
+env/
+pip-wheel-metadata/
+*.env
+*.env.*
+
+# FastAPI
+instance/
+*.sqlite
+*.db
+
+# Docker
+**/Dockerfile*
+**/docker-compose*.yml
+.dockerignore
+
+# Cursor
+.cursor/
+!.cursor/mcp.json
+!.cursor/mcp-config.json
+!.cursor/rules
+.cursor-tmp/
+.cursor-history/
+.cursor-config.json
+
+# VSCode/Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Misc
+.envrc
+.env.local
+.env.development
+.env.production
+.env.test
+*.bak
+*.tmp
+*.log
+
+# Test output
+coverage/
+test-results/
+
+# Ignore local data
+backend/data/analyses
+backend/data/conversations
+backend/data/personas
