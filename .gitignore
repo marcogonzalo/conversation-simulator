@@ -55,11 +55,6 @@ instance/
 *.sqlite
 *.db
 
-# Docker
-**/Dockerfile*
-**/docker-compose*.yml
-.dockerignore
-
 # Cursor
 .cursor/
 !.cursor/mcp.json
