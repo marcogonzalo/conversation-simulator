@@ -1,14 +1,11 @@
 "use client"
 
-import { Mic, MicOff, Phone, PhoneOff, Volume2, VolumeX } from 'lucide-react'
+import { Phone, PhoneOff, VolumeX } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 interface CallControlsProps {
-  isRecording: boolean
   isPlaying: boolean
   isConnected: boolean
-  onStartRecording: () => void
-  onStopRecording: () => void
   onStartCall: () => void
   onEndCall: () => void
   onPlayAudio: () => void
@@ -16,11 +13,8 @@ interface CallControlsProps {
 }
 
 export function CallControls({
-  isRecording,
   isPlaying,
   isConnected,
-  onStartRecording,
-  onStopRecording,
   onStartCall,
   onEndCall,
   onPlayAudio,
@@ -38,24 +32,9 @@ export function CallControls({
         </Button>
       )}
 
-      {/* Recording Controls */}
+      {/* Connected Controls */}
       {isConnected && (
         <>
-          <Button
-            onClick={isRecording ? onStopRecording : onStartRecording}
-            className={`w-16 h-16 rounded-full shadow-2xl transition-all duration-300 transform hover:scale-105 ${
-              isRecording 
-                ? 'bg-red-500 hover:bg-red-600 shadow-red-500/25' 
-                : 'bg-blue-500 hover:bg-blue-600 shadow-blue-500/25'
-            }`}
-          >
-            {isRecording ? (
-              <MicOff className="h-8 w-8 text-white" />
-            ) : (
-              <Mic className="h-8 w-8 text-white" />
-            )}
-          </Button>
-
           {/* Audio Playback Controls */}
           {isPlaying && (
             <Button

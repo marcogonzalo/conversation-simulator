@@ -44,15 +44,18 @@ export function Avatar({
         <User className={`${iconSizes[size]} text-white/80`} />
       </div>
       
-      {/* Speaking Indicator */}
+      
+      {/* Speaking Waves Animation */}
       {isSpeaking && (
-        <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-green-500 rounded-full flex items-center justify-center shadow-lg">
-          <div className="w-3 h-3 bg-white rounded-full animate-pulse"></div>
-        </div>
+        <>
+          <div className="absolute inset-0 rounded-full border-2 border-green-400/40 animate-ping"></div>
+          <div className="absolute inset-0 rounded-full border-2 border-green-400/30 animate-ping" style={{ animationDelay: '0.5s' }}></div>
+          <div className="absolute inset-0 rounded-full border-2 border-green-400/20 animate-ping" style={{ animationDelay: '1s' }}></div>
+        </>
       )}
       
       {/* Active Ring Animation */}
-      {isActive && (
+      {isActive && !isSpeaking && (
         <div className="absolute inset-0 rounded-full border-4 border-blue-500/30 animate-ping"></div>
       )}
     </div>

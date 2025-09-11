@@ -7,9 +7,10 @@ interface CallStatusProps {
   status: 'idle' | 'connecting' | 'connected' | 'disconnected'
   duration?: number
   isConnected: boolean
+  isRecording?: boolean
 }
 
-export function CallStatus({ status, duration, isConnected }: CallStatusProps) {
+export function CallStatus({ status, duration, isConnected, isRecording }: CallStatusProps) {
   const getStatusInfo = () => {
     switch (status) {
       case 'idle':
@@ -49,6 +50,13 @@ export function CallStatus({ status, duration, isConnected }: CallStatusProps) {
         <div className="flex items-center gap-2 text-white/80">
           <Clock className="h-4 w-4" />
           <span className="font-mono text-lg">{formatDuration(duration)}</span>
+        </div>
+      )}
+
+      {/* Microphone Status */}
+      {isConnected && isRecording && (
+        <div className="text-center">
+          <span className="text-sm font-medium text-green-400">Micrófono activo</span>
         </div>
       )}
 
