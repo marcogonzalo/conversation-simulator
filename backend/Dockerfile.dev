@@ -6,6 +6,7 @@ WORKDIR /app
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
     gcc \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching
@@ -23,5 +24,5 @@ ENV PYTHONPATH=/app
 # Expose ports for application and debugging
 EXPOSE 8000 5678
 
-# Run the application with debug mode and debugpy
-CMD ["python", "-m", "debugpy", "--listen", "0.0.0.0:5678", "--wait-for-client", "-m", "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--log-level", "debug"]
+# Run the application with debug mode and debugpy (without waiting for client)
+CMD ["python", "-m", "debugpy", "--listen", "0.0.0.0:5678", "-m", "uvicorn", "src.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload", "--log-level", "debug"]

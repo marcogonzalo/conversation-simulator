@@ -1,0 +1,22 @@
+/**
+ * API Configuration
+ * Centralized configuration for API endpoints and WebSocket URLs
+ */
+
+// Get API base URL from environment variables
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:8000'
+const WS_BASE_URL = process.env.NEXT_PUBLIC_WS_BASE_URL || 'ws://localhost:8000'
+
+export const apiConfig = {
+  // HTTP API endpoints
+  baseUrl: API_BASE_URL,
+  conversations: `${API_BASE_URL}/api/v1/conversations/`,
+  personas: `${API_BASE_URL}/api/v1/personas/`,
+  analysis: `${API_BASE_URL}/api/v1/analysis/`,
+  
+  // WebSocket endpoints
+  wsBaseUrl: WS_BASE_URL,
+  conversationWs: (conversationId: string) => `${WS_BASE_URL}/api/v1/ws/conversation/${conversationId}`,
+}
+
+export default apiConfig

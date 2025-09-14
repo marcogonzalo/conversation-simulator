@@ -7,7 +7,6 @@ from typing import Optional
 from src.shared.domain.interfaces.ai_service_interface import AIServiceInterface
 from src.shared.infrastructure.external_apis.api_config import api_config
 from src.shared.infrastructure.external_apis.openai_service import OpenAIService
-from src.shared.infrastructure.external_apis.claude_service import ClaudeService
 
 logger = logging.getLogger(__name__)
 
@@ -29,8 +28,6 @@ class AIServiceFactory:
             
             if provider == "openai":
                 return AIServiceFactory._create_openai_service(key)
-            elif provider == "claude":
-                return AIServiceFactory._create_claude_service(key)
             else:
                 logger.error(f"Unsupported AI provider: {provider}")
                 return None
@@ -44,8 +41,6 @@ class AIServiceFactory:
         """Get API key for the specified provider."""
         if provider == "openai":
             return api_config.openai_api_key
-        elif provider == "claude":
-            return api_config.anthropic_api_key
         return None
     
     @staticmethod
@@ -61,23 +56,11 @@ class AIServiceFactory:
             logger.error(f"Failed to create OpenAI service: {e}")
             return None
     
-    @staticmethod
-    def _create_claude_service(api_key: str) -> Optional[ClaudeService]:
-        """Create Claude service."""
-        try:
-            return ClaudeService(
-                api_key=api_key,
-                model=api_config.claude_model
-            )
-        
-        except Exception as e:
-            logger.error(f"Failed to create Claude service: {e}")
-            return None
     
     @staticmethod
     def get_available_providers() -> list:
         """Get list of available AI providers."""
-        return ["openai", "claude"]
+        return ["openai"]
     
     @staticmethod
     def validate_provider(provider: str) -> bool:
@@ -90,8 +73,3 @@ class AIServiceFactory:
         from src.conversation.infrastructure.services.ai_conversation_service import AIConversationService
         return AIConversationService(ai_provider, api_key)
     
-    @staticmethod
-    def create_analysis_service(ai_provider: str = None, api_key: str = None):
-        """Create AI analysis service."""
-        from src.analysis.infrastructure.services.ai_analysis_service import AIAnalysisService
-        return AIAnalysisService(ai_provider, api_key)

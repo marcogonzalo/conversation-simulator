@@ -25,8 +25,8 @@ Desarrollar un simulador de clientes para que agentes de ventas puedan practicar
 ### In Scope (MVP)
 
 - 3-5 perfiles de persona básicos con acentos regionales
-- Conversación de voz fluida usando ElevenLabs (STT + TTS)
-- Motor de personalidades con Claude Sonnet 4
+- Conversación de voz fluida usando OpenAI Realtime API (audio-to-audio en tiempo real)
+- Motor de personalidades integrado en OpenAI Realtime API
 - Análisis automático y reportes básicos
 - UI minimalista para selección de persona y conversación
 - Sistema de recomendaciones de contenido educativo

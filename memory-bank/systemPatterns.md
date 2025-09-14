@@ -18,8 +18,7 @@ graph TB
     end
     
     subgraph "External Services"
-        Claude[Claude Sonnet 4]
-        ElevenLabs[ElevenLabs STT/TTS]
+        OpenAI[OpenAI GPT-4o-mini-realtime]
         Supabase[Supabase DB]
     end
     
@@ -29,8 +28,7 @@ graph TB
     API --> APP
     APP --> DOM
     APP --> INF
-    INF --> Claude
-    INF --> ElevenLabs
+    INF --> OpenAI
     INF --> Supabase
 ```
 
@@ -212,7 +210,7 @@ backend/src/
 │   │
 │   └── infrastructure/
 │       └── services/
-│           ├── elevenlabs_audio_service.py
+│           ├── openai_voice_service.py
 │           └── websocket_audio_service.py
 │
 └── api/                        # API Layer
@@ -288,9 +286,9 @@ frontend/
 ### Audio Processing Pipeline
 
 1. **Captura**: Web Audio API → Microphone → Audio Buffer
-2. **STT**: Audio Buffer → ElevenLabs STT → Text
-3. **IA Processing**: Text → Claude Sonnet 4 → Response Text
-4. **TTS**: Response Text → ElevenLabs TTS → Audio Stream
+2. **STT**: Audio Buffer → OpenAI Whisper → Text
+3. **IA Processing**: Text → OpenAI GPT-4o-mini-realtime → Response Text
+4. **TTS**: Response Text → OpenAI TTS → Audio Stream
 5. **Reproducción**: Audio Stream → Web Audio API → Speakers
 
 ### Persona Management
@@ -298,7 +296,7 @@ frontend/
 - **Configuración**: Archivos YAML para flexibilidad
 - **Carga**: PersonaLoader service para cargar perfiles
 - **Contexto**: Mantener historial de conversación por sesión
-- **Acentos**: Mapeo de acentos a voice_ids de ElevenLabs
+- **Acentos**: Mapeo de acentos a voces de OpenAI
 
 ### Technical
 
@@ -323,7 +321,7 @@ frontend/
 - **Español**: Caribeño (cubano), Peruano, Venezolano
 - **Inglés**: Inglés de Florida
 - **Configuración**: Fácilmente editable para futuras modificaciones
-- **ElevenLabs**: Mapeo de acentos a voice_ids específicos
+- **OpenAI**: Mapeo de acentos a voces específicas
 
 ## Design Patterns in Use
 
@@ -415,10 +413,10 @@ frontend/
 #### Conversation Components Flow
 
 1. **Persona Selection** → API Layer → Application Service → Domain Service → YAML Config
-2. **Audio Input** → WebSocket → Application Service → Infrastructure Service → ElevenLabs STT
-3. **Text Processing** → Application Service → Domain Service → Infrastructure Service → Claude Sonnet 4
-4. **Audio Output** → Infrastructure Service → ElevenLabs TTS → Application Service → WebSocket
-5. **Analysis** → Application Service → Domain Service → Infrastructure Service → Claude Sonnet 4 → Report
+2. **Audio Input** → WebSocket → Application Service → Infrastructure Service → OpenAI Whisper
+3. **Text Processing** → Application Service → Domain Service → Infrastructure Service → OpenAI GPT-4o-mini-realtime
+4. **Audio Output** → Infrastructure Service → OpenAI TTS → Application Service → WebSocket
+5. **Analysis** → Application Service → Domain Service → Infrastructure Service → OpenAI GPT-4o-mini-realtime → Report
 
 #### Event-Driven Flow
 
@@ -432,7 +430,7 @@ frontend/
 ### Audio Quality Path
 
 - **Latencia**: Optimizar pipeline de audio para <500ms
-- **Calidad**: Configurar ElevenLabs para máxima calidad
+- **Calidad**: Configurar OpenAI para máxima calidad
 - **Error Handling**: Manejo robusto de fallos de audio
 - **Cross-browser**: Compatibilidad con navegadores modernos
 

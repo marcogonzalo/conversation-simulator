@@ -13,35 +13,34 @@ class APIConfig:
     
     def __init__(self):
         # API Keys
-        self.elevenlabs_api_key = os.getenv("ELEVENLABS_API_KEY")
         self.openai_api_key = os.getenv("OPENAI_API_KEY")
-        self.anthropic_api_key = os.getenv("ANTHROPIC_API_KEY")
         self.supabase_url = os.getenv("SUPABASE_URL")
         self.supabase_key = os.getenv("SUPABASE_KEY")
         
         # Audio settings
-        self.audio_sample_rate = int(os.getenv("AUDIO_SAMPLE_RATE", "44100"))
         self.audio_channels = int(os.getenv("AUDIO_CHANNELS", "1"))
         self.audio_format = os.getenv("AUDIO_FORMAT", "wav")
+        self.audio_playback_sample_rate = int(os.getenv("AUDIO_PLAYBACK_SAMPLE_RATE", "24000"))  # Playback sample rate for frontend
+
         
-        # AI settings
-        self.ai_provider = os.getenv("AI_PROVIDER", "openai")  # openai, claude
+        # AI settings (for fallback text conversations)
+        self.ai_provider = os.getenv("AI_PROVIDER", "openai")
         self.ai_model = os.getenv("AI_MODEL", "gpt-4o-mini")
         self.ai_temperature = float(os.getenv("AI_TEMPERATURE", "0.7"))
         self.ai_max_tokens = int(os.getenv("AI_MAX_TOKENS", "1000"))
         
-        # Model-specific settings
-        self.openai_model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
-        self.claude_model = os.getenv("CLAUDE_MODEL", "claude-3-sonnet-20240229")
+        # OpenAI Voice-to-Voice settings
+        self.openai_voice_model = os.getenv("OPENAI_VOICE_MODEL", "4o-mini-realtime-preview")
+        self.openai_voice_temperature = float(os.getenv("OPENAI_VOICE_TEMPERATURE", "0.8"))
+        self.openai_voice_max_tokens = int(os.getenv("OPENAI_VOICE_MAX_TOKENS", "4096"))
+        self.openai_voice_input_format = os.getenv("OPENAI_VOICE_INPUT_FORMAT", "pcm16")
+        self.openai_voice_output_format = os.getenv("OPENAI_VOICE_OUTPUT_FORMAT", "pcm16")
+        self.openai_voice_default_voice = os.getenv("OPENAI_VOICE_DEFAULT_VOICE", "alloy")
         
-        # TTS settings
-        self.tts_voice_id = os.getenv("TTS_VOICE_ID", "pNInz6obpgDQGcFmaJgB")  # Default voice
-        self.tts_stability = float(os.getenv("TTS_STABILITY", "0.5"))
-        self.tts_similarity_boost = float(os.getenv("TTS_SIMILARITY_BOOST", "0.8"))
-        
-        # STT settings
-        self.stt_model = os.getenv("STT_MODEL", "whisper-1")
-        self.stt_language = os.getenv("STT_LANGUAGE", "es")
+        # Voice detection settings
+        self.voice_detection_threshold = float(os.getenv("VOICE_DETECTION_THRESHOLD", "0.5"))
+        self.voice_detection_prefix_padding_ms = int(os.getenv("VOICE_DETECTION_PREFIX_PADDING_MS", "300"))
+        self.voice_detection_silence_duration_ms = int(os.getenv("VOICE_DETECTION_SILENCE_DURATION_MS", "500"))
         
         # Conversation settings
         self.max_conversation_duration = int(os.getenv("MAX_CONVERSATION_DURATION", "1200"))  # 20 minutes
@@ -53,18 +52,7 @@ class APIConfig:
     
     def validate_config(self) -> bool:
         """Validate API configuration."""
-        required_keys = [
-            "ELEVENLABS_API_KEY"
-        ]
-        
-        # Add AI API key based on provider
-        if self.ai_provider == "openai":
-            required_keys.append("OPENAI_API_KEY")
-        elif self.ai_provider == "claude":
-            required_keys.append("ANTHROPIC_API_KEY")
-        else:
-            logger.error(f"Unsupported AI provider: {self.ai_provider}")
-            return False
+        required_keys = ["OPENAI_API_KEY"]
         
         missing_keys = []
         for key in required_keys:
@@ -78,24 +66,23 @@ class APIConfig:
         logger.info("API configuration validated successfully")
         return True
     
-    def get_elevenlabs_config(self) -> Dict[str, Any]:
-        """Get ElevenLabs configuration."""
+    def get_openai_voice_config(self) -> Dict[str, Any]:
+        """Get OpenAI voice configuration."""
         return {
-            "api_key": self.elevenlabs_api_key,
-            "voice_id": self.tts_voice_id,
-            "stability": self.tts_stability,
-            "similarity_boost": self.tts_similarity_boost,
-            "sample_rate": self.audio_sample_rate
+            "api_key": self.openai_api_key,
+            "model": self.openai_voice_model,
+            "temperature": self.openai_voice_temperature,
+            "max_tokens": self.openai_voice_max_tokens,
+            "input_format": self.openai_voice_input_format,
+            "output_format": self.openai_voice_output_format,
+            "default_voice": self.openai_voice_default_voice,
+            "voice_detection": {
+                "threshold": self.voice_detection_threshold,
+                "prefix_padding_ms": self.voice_detection_prefix_padding_ms,
+                "silence_duration_ms": self.voice_detection_silence_duration_ms
+            }
         }
     
-    def get_anthropic_config(self) -> Dict[str, Any]:
-        """Get Anthropic configuration."""
-        return {
-            "api_key": self.anthropic_api_key,
-            "model": self.ai_model,
-            "temperature": self.ai_temperature,
-            "max_tokens": self.ai_max_tokens
-        }
     
     def get_supabase_config(self) -> Dict[str, Any]:
         """Get Supabase configuration."""
@@ -129,8 +116,7 @@ class APIConfig:
     def get_all_config(self) -> Dict[str, Any]:
         """Get all configuration."""
         return {
-            "elevenlabs": self.get_elevenlabs_config(),
-            "anthropic": self.get_anthropic_config(),
+            "openai_voice": self.get_openai_voice_config(),
             "supabase": self.get_supabase_config(),
             "audio": self.get_audio_config(),
             "conversation": self.get_conversation_config(),

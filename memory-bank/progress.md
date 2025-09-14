@@ -3,12 +3,12 @@
 ## What Works
 
 - **Arquitectura definida**: Stack tecnológico seleccionado y justificado
-- **Estrategia de acentos**: ElevenLabs configurado para acentos regionales
+- **Estrategia de acentos**: OpenAI voice-to-voice configurado para acentos regionales
 - **Perfiles de persona conceptualizados**: 3 perfiles básicos definidos
 - **Memory Bank establecido**: Documentación completa del proyecto
-- **Decisión de stack simplificado**: ElevenLabs completo para MVP
+- **Decisión de stack simplificado**: OpenAI voice-to-voice para MVP
 - **Stack de deployment**: Vercel + Fly.io + Supabase (todo gratis)
-- **Modelos de IA**: Claude Sonnet 4 (conversación + análisis)
+- **Modelos de IA**: OpenAI GPT-4o-mini-realtime (conversación + análisis)
 - **Arquitectura DDD implementada**: Bounded contexts completos según memory bank
 - **Event Bus funcionando**: Comunicación entre contextos implementada
 - **API Gateway**: Endpoints REST y WebSocket funcionando
@@ -23,7 +23,7 @@
 
 - [x] Configuración del entorno Docker
 - [x] Estructura base del proyecto (frontend + backend)
-- [x] Configuración de APIs (ElevenLabs + Claude Sonnet 4 + Supabase)
+- [x] Configuración de APIs (OpenAI voice-to-voice + Supabase)
 - [x] 3 perfiles de persona en YAML
 - [x] Configuración de variables de entorno
 - [x] Arquitectura DDD completa implementada
@@ -33,11 +33,10 @@
 ### Fase 2: Experiencia Conversacional (Semana 2) ❌ PENDIENTE
 
 - [x] Implementación de Web Audio API (frontend)
-- [ ] WebSockets para streaming de audio
-- [ ] Manejo de errores de audio (básico)
+- [x] WebSockets para streaming de audio
+- [x] Manejo de errores de audio (básico)
 - [x] Interfaz de llamada con avatar y controles
-- [ ] Integración real con ElevenLabs STT
-- [ ] Integración real con ElevenLabs TTS
+- [x] Integración real con OpenAI voice-to-voice
 - [ ] Optimización de latencia de audio
 
 ### Fase 3: Motor de Personalidades (Semana 3) ❌ PENDIENTE
@@ -46,8 +45,7 @@
 - [ ] Manejo de contexto de conversación
 - [ ] Lógica de finalización natural (básica)
 - [x] Especificación de acentos regionales implementados (configuración)
-- [ ] Integración provisional con OpenAI (GPT-4o-mini)
-- [ ] Integración real con Claude Sonnet 4
+- [x] Integración con OpenAI voice-to-voice (4o-mini-realtime-preview)
 - [ ] Testing de personalidades
 
 ### Fase 4: Análisis y Feedback (Semana 4) ❌ PENDIENTE
@@ -69,8 +67,8 @@
 ## Current Status
 
 **Estado**: Arquitectura DDD completada, interfaz visual terminada, integraciones reales pendientes
-**Próximo paso**: Integración real con ElevenLabs y Claude Sonnet 4
-**Bloqueadores**: APIs externas requieren configuración real y testing
+**Próximo paso**: Optimización de latencia y testing de personalidades
+**Bloqueadores**: Optimización de latencia y testing de personalidades
 **Completado**: Interfaz de llamada con avatar, controles y estados visuales
 
 ## Arquitectura DDD Implementada
@@ -120,7 +118,7 @@
 ### Decisión 1: Stack Tecnológico
 
 - **Inicial**: Consideración de múltiples proveedores de IA
-- **Evolución**: Simplificación a ElevenLabs completo
+- **Evolución**: Simplificación a OpenAI completo
 - **Razón**: Reducir complejidad del MVP, una sola API
 - **Impacto**: Desarrollo más rápido, menos puntos de falla
 
@@ -141,9 +139,9 @@
 ### Decisión 4: Arquitectura de Audio
 
 - **Inicial**: Consideración de múltiples servicios
-- **Evolución**: ElevenLabs STT + TTS
-- **Razón**: Simplicidad, consistencia, calidad
-- **Impacto**: Menos integraciones, mejor experiencia
+- **Evolución**: OpenAI Realtime API (audio-to-audio)
+- **Razón**: Simplicidad, consistencia, calidad, tiempo real
+- **Impacto**: Menos integraciones, mejor experiencia, latencia ultra-baja
 
 ### Decisión 5: Stack de Deployment
 
@@ -155,7 +153,7 @@
 ### Decisión 6: Modelos de IA
 
 - **Inicial**: Claude Sonnet 4 para todo
-- **Evolución**: Claude Sonnet 4 (conversación + análisis)
+- **Evolución**: OpenAI GPT-4o-mini-realtime (conversación + análisis)
 - **Razón**: Calidad superior para simulación de roles
 - **Impacto**: Mejor experiencia conversacional, análisis más detallado
 
@@ -169,8 +167,8 @@
 ## Next Milestones
 
 1. **Estructura Base**: ✅ Proyecto Docker + Backend DDD + Frontend Next.js 15+
-2. **APIs Configuradas**: ✅ ElevenLabs, Claude Sonnet 4, Supabase (configuración)
-3. **Integraciones Reales**: Integración real con APIs externas
+2. **APIs Configuradas**: ✅ OpenAI voice-to-voice, Supabase (configuración)
+3. **Integraciones Reales**: ✅ Integración real con OpenAI voice-to-voice
 4. **MVP Funcional**: Conversación de voz básica funcionando
 5. **Perfiles Implementados**: 3 personalidades con acentos funcionando
 6. **Análisis Automático**: ❌ Reportes post-conversación (pendiente)
@@ -194,4 +192,22 @@
 
 **Nota**: El progreso se ha recalculado de manera más realista. Muchos elementos marcados como "completados" solo tenían estructura básica sin implementación funcional real.
 
-**La arquitectura DDD está completamente implementada según el memory bank. La interfaz visual está terminada con avatar, controles y estados. El siguiente paso crítico es la integración real con las APIs externas (ElevenLabs y Claude Sonnet 4) para tener un MVP funcional.**
+**La arquitectura DDD está completamente implementada según el memory bank. La interfaz visual está terminada con avatar, controles y estados. La integración con OpenAI voice-to-voice está completada. El siguiente paso crítico es la optimización de latencia y testing de personalidades para tener un MVP funcional.**
+
+## Future Development (Post-MVP)
+
+### Sistema de Usuarios y Sesiones
+
+- **Autenticación de usuarios**: Login/registro con JWT o OAuth
+- **Perfiles de usuario**: Preferencias de voz, acentos, historial
+- **Sesiones independientes**: Cada usuario tiene sus propias conversaciones
+- **Configuración personalizada**: Voice selection por usuario en lugar de global
+- **Historial de conversaciones**: Persistencia por usuario
+- **Métricas personalizadas**: Análisis individual de performance
+
+### Escalabilidad Multi-Usuario
+
+- **Base de datos multi-tenant**: Separación de datos por usuario
+- **Rate limiting**: Límites por usuario para APIs externas
+- **Caching inteligente**: Cache de configuraciones de voz por usuario
+- **WebSockets namespaced**: Conexiones WebSocket por sesión de usuario

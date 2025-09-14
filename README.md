@@ -10,14 +10,50 @@ Un simulador de clientes para que agentes de ventas puedan practicar y mejorar s
 - **Recomendaciones personalizadas** de contenido educativo basado en performance
 - **Interfaz minimalista** enfocada en la experiencia conversacional
 
+## ⚙️ Configuración
+
+### Variables de Entorno
+
+El proyecto usa variables de entorno para configurar las URLs de la API y WebSocket.
+
+#### Frontend
+
+Crea un archivo `.env.local` en el directorio `frontend/` basado en `frontend-env.example`:
+
+```bash
+# API Configuration
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+NEXT_PUBLIC_WS_BASE_URL=ws://localhost:8000
+
+# Para producción:
+# NEXT_PUBLIC_API_BASE_URL=https://your-api-domain.com
+# NEXT_PUBLIC_WS_BASE_URL=wss://your-api-domain.com
+```
+
+#### Backend
+
+Crea un archivo `.env` en el directorio raíz basado en `env.example`:
+
+```bash
+# OpenAI Configuration
+OPENAI_API_KEY=your_openai_api_key_here
+
+# Database Configuration
+DATABASE_URL=sqlite:///./data/conversation_simulator.db
+
+# API Configuration
+API_HOST=0.0.0.0
+API_PORT=8000
+```
+
 ## 🏗️ Arquitectura
 
 ### Backend (FastAPI + DDD)
 
 - **Arquitectura Domain-Driven Design** con separación clara de responsabilidades
 - **WebSockets** para comunicación en tiempo real
-- **Integración con Claude Sonnet 4** para generación de personalidades
-- **Integración con ElevenLabs** para STT y TTS con acentos regionales
+- **Integración con OpenAI** para generación de personalidades y conversaciones
+- **Integración con OpenAI Realtime API** para conversación de voz audio-to-audio
 - **Supabase** para persistencia de datos
 
 ### Frontend (Next.js 15+)
@@ -32,11 +68,10 @@ Un simulador de clientes para que agentes de ventas puedan practicar y mejorar s
 
 ### Backend
 
-- FastAPI 0.104.1
-- Python 3.11+
+- FastAPI 0.116.1
+- Python 3.13+
 - WebSockets
-- ElevenLabs API
-- Anthropic Claude API
+- OpenAI API
 - Supabase
 - Pydantic
 - SQLAlchemy
@@ -65,8 +100,7 @@ Un simulador de clientes para que agentes de ventas puedan practicar y mejorar s
 - Docker Desktop
 - Git
 - Cuentas en:
-  - ElevenLabs (API key)
-  - Anthropic (API key)
+  - OpenAI (API key)
   - Supabase (URL y anon key)
 
 ### Configuración
@@ -87,8 +121,7 @@ cp env.example .env
 Editar `.env` con tus API keys:
 
 ```bash
-ELEVENLABS_API_KEY=your_elevenlabs_api_key_here
-ANTHROPIC_API_KEY=your_anthropic_api_key_here
+OPENAI_API_KEY=your_openai_api_key_here
 SUPABASE_URL=your_supabase_url_here
 SUPABASE_ANON_KEY=your_supabase_anon_key_here
 ```
@@ -131,10 +164,9 @@ docker-compose up --build
 1. **Selección de Persona**: Usuario elige un perfil de cliente
 2. **Inicio de Conversación**: Se establece conexión WebSocket
 3. **Conversación de Voz**:
-   - Usuario habla → STT (ElevenLabs) → Texto
-   - Texto → Claude Sonnet 4 → Respuesta de IA
-   - Respuesta → TTS (ElevenLabs) → Audio
-4. **Análisis Post-Conversación**: Claude analiza la conversación
+   - Usuario habla → OpenAI Realtime API → Respuesta de audio directa
+   - Flujo audio-to-audio en tiempo real sin conversiones intermedias
+4. **Análisis Post-Conversación**: OpenAI analiza la conversación
 5. **Reporte de Feedback**: Métricas, fortalezas, debilidades y recomendaciones
 
 ## 📊 Análisis de Performance

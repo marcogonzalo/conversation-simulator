@@ -147,30 +147,6 @@ class AIConversationService:
         
         return "\n".join(context_parts)
     
-    async def _call_claude_api(
-        self,
-        context: str,
-        user_message: str,
-        persona: Persona
-    ) -> str:
-        """Call Claude Sonnet 4 API."""
-        try:
-            # This is a placeholder implementation
-            # In a real system, this would call the actual Anthropic API
-            
-            logger.info(f"Calling Claude API for persona {persona.name}")
-            
-            # Simulate API call
-            await self._simulate_api_delay()
-            
-            # Generate simulated response based on persona
-            response = await self._generate_simulated_response(user_message, persona)
-            
-            return response
-        
-        except Exception as e:
-            logger.error(f"Claude API call failed: {e}")
-            raise
     
     async def _simulate_api_delay(self):
         """Simulate API call delay."""
@@ -180,7 +156,7 @@ class AIConversationService:
     async def _generate_simulated_response(self, user_message: str, persona: Persona) -> str:
         """Generate simulated response based on persona."""
         # This is a placeholder - in real implementation, this would be replaced
-        # with actual Claude Sonnet 4 API call
+        # with actual OpenAI API call
         
         responses = {
             "friendly": [

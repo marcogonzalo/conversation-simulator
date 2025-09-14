@@ -8,7 +8,7 @@
 - **TypeScript**: Tipado estático, mejor DX, menos errores
 - **Tailwind CSS**: Styling utilitario, modo oscuro por defecto
 - **Web Audio API**: Captura y reproducción de audio
-- **WebRTC**: Streaming de audio en tiempo real
+- **WebSockets**: Comunicación en tiempo real con backend
 
 ### Backend
 
@@ -20,8 +20,8 @@
 
 ### AI Services
 
-- **Claude Sonnet 4**: Generación de personalidades para conversación (calidad optimizada) + Análisis post-conversación (calidad optimizada)
-- **ElevenLabs**: STT + TTS con acentos regionales
+- **OpenAI Realtime API**: Conversación de voz audio-to-audio en tiempo real
+- **Integración completa**: Audio-to-audio en tiempo real con OpenAI Realtime API
 
 ### Infrastructure
 
@@ -37,27 +37,41 @@
 
 - Docker Desktop
 - Git (para versionado)
-- Cuenta Vercel (para frontend)
-- Cuenta Fly.io (para backend)
+- Cuenta OpenAI (para API key)
 - Cuenta Supabase (para database)
+- Cuenta Vercel (para frontend - futuro)
+- Cuenta Fly.io (para backend - futuro)
 
 ### Environment Variables
 
 ```bash
-# ElevenLabs
-ELEVENLABS_API_KEY=your_api_key
+# OpenAI
+OPENAI_API_KEY=sk-your-key-here
 
-# Anthropic
-ANTHROPIC_API_KEY=your_api_key
+# OpenAI Voice-to-Voice Configuration
+OPENAI_VOICE_MODEL=4o-mini-realtime-preview
+OPENAI_VOICE_TEMPERATURE=0.8
+OPENAI_VOICE_MAX_TOKENS=4096
+OPENAI_VOICE_DEFAULT_VOICE=alloy
+
+# AI Provider Configuration (for fallback text conversations)
+AI_PROVIDER=openai
+AI_MODEL=gpt-4o-mini
+AI_TEMPERATURE=0.7
+AI_MAX_TOKENS=1000
 
 # Supabase
-SUPABASE_URL=your_supabase_url
-SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_URL=your_supabase_url_here
+SUPABASE_ANON_KEY=your_supabase_anon_key_here
 
 # Audio Settings
-AUDIO_SAMPLE_RATE=44100
 AUDIO_CHANNELS=1
-AUDIO_LATENCY_TARGET=500
+AUDIO_PLAYBACK_SAMPLE_RATE=24000
+
+# Voice Detection Settings
+VOICE_DETECTION_THRESHOLD=0.5
+VOICE_DETECTION_PREFIX_PADDING_MS=300
+VOICE_DETECTION_SILENCE_DURATION_MS=500
 ```
 
 ### Local Development
@@ -86,43 +100,45 @@ docker-compose up frontend
 ### Browser Compatibility
 
 - **Web Audio API**: Chrome 66+, Firefox 60+, Safari 14+
-- **WebRTC**: Navegadores modernos
 - **WebSockets**: Soporte universal
+- **MediaRecorder API**: Chrome 47+, Firefox 25+, Safari 14+
 - **Mobile**: iOS Safari, Chrome Mobile
 
 ### Audio Quality
 
-- **Sample Rate**: 44.1kHz para calidad profesional
+- **Sample Rate**: 24kHz para OpenAI Realtime API
 - **Channels**: Mono para eficiencia
-- **Format**: WAV para máxima calidad
+- **Format**: PCM16 para OpenAI, WAV para frontend
 - **Compression**: Mínima para preservar calidad
+- **Playback Rate**: 24kHz (configurable via AUDIO_PLAYBACK_SAMPLE_RATE)
 
 ## Dependencies
 
-### Backend Dependencies
+### Backend Main Dependencies
 
 ```sh
-fastapi==0.104.1
-uvicorn[standard]==0.24.0
-websockets==12.0
-elevenlabs==0.2.26
-anthropic==0.7.8
-pydantic==2.5.0
-supabase==2.0.0
-python-multipart==0.0.6
-python-dotenv==1.0.0
+fastapi==0.116.1
+uvicorn[standard]==0.34.0
+websockets==15.0.1
+openai==1.107.2
+aiohttp==3.12.15
+pydantic==2.11.7
+supabase==2.18.1
+sqlalchemy==2.0.43
+alembic==1.16.5
+httpx==0.28.1
 ```
 
 ### Frontend Dependencies
 
 ```sh
-next@14.0.0
-react@18.2.0
-typescript@5.2.0
-tailwindcss@3.3.0
-@types/node@20.8.0
-@types/react@18.2.0
-@types/react-dom@18.2.0
+next@^15.5.2
+react@^19.1.1
+typescript@^5.9.2
+tailwindcss@^4.1.13
+@types/node@^24.3.1
+@types/react@^19.1.12
+@types/react-dom@^19.1.9
 ```
 
 ### Docker Dependencies
@@ -174,67 +190,51 @@ python:3.11-slim
 
 ### AI Models Selection
 
-#### Claude Sonnet 4 (Conversación)
+#### OpenAI GPT-4o-mini-realtime (Conversación de Voz)
 
-**¿Por qué elegimos Sonnet 4 para conversación?**
+**¿Por qué elegimos GPT-4o-mini-realtime para conversación de voz?**
 
-- **Calidad de simulación**: Excelente consistencia en personalidades complejas
-- **Comprensión contextual**: Superior para matices emocionales y sutilezas
-- **Coherencia**: Mantiene el hilo del personaje en conversaciones largas
-- **Costo-beneficio**: $3-6/1M entrada, $15-22.50/1M salida (mismo costo total)
-- **Latencia aceptable**: 1-2 segundos (suficiente para conversación natural)
-- **Contexto adecuado**: 200k tokens suficientes para conversaciones de 10-15 minutos
-- **Estrategia de duración**: MVP optimizado para 5-8 minutos, producción para 10-15 minutos
-
-**Alternativas consideradas:**
-
-- **Claude Haiku 3.5**: $0.80/1M entrada, $4/1M salida (más rápido pero menos calidad de rol)
-- **Claude Opus 4.1**: $15/1M entrada, $75/1M salida (muy caro para MVP)
-- **GPT-5**: $1.25/1M entrada, $10/1M salida (más caro que Sonnet 4)
-- **Gemini 2.5 Flash**: $0.30/1M entrada, $2.50/1M salida (más barato pero menos consistencia)
-
-#### Claude Sonnet 4 (Análisis)
-
-**¿Por qué elegimos Sonnet 4 para análisis?**
-
-- **Calidad superior**: Mejor razonamiento para análisis complejos
-- **Consistencia**: Mismo modelo que conversación para coherencia total
-- **Análisis detallado**: Necesitamos insights profundos sobre técnicas de venta
-- **Eficiencia**: Una sola API para todo el flujo de IA
-
-#### ElevenLabs (STT + TTS)
-
-**¿Por qué ElevenLabs completo?**
-
-- **Simplicidad**: Una sola API para entrada y salida de audio
-- **Calidad excepcional**: Mejor síntesis de voz del mercado
-- **Acentos regionales**: Característica diferenciadora clave
-- **Costo razonable**: $0.18/1000 caracteres TTS, $0.0015/minuto STT
-- **API estable**: Muy confiable, menos puntos de falla
-
-**Alternativa más económica:**
-
-- **Whisper + Gemini 2.5 Flash TTS**: ~$0.10 por conversación (33% más barato)
-- **Trade-off**: Menos acentos disponibles, más complejidad de integración
+- **Tiempo real**: Diseñado específicamente para conversaciones de voz en tiempo real
+- **Latencia ultra-baja**: <500ms para respuesta natural
+- **Calidad de voz**: Síntesis de voz nativa integrada
+- **Transcripción integrada**: Whisper integrado en OpenAI Realtime API
+- **Costo eficiente**: $0.15/1M tokens entrada, $0.60/1M tokens salida
+- **Simplicidad**: Una sola API para todo el flujo de voz
+- **WebSockets nativos**: Comunicación bidireccional en tiempo real
+- **Personalidades**: Capacidad de mantener personajes consistentes
 
 **Alternativas consideradas:**
 
-- **Whisper + Gemini 2.5 Flash TTS**: $0.50/1M entrada, $10/1M salida (más barato, menos acentos)
-- **Whisper + Gemini 2.5 Pro TTS**: $1/1M entrada, $20/1M salida (más caro que ElevenLabs)
-- **Whisper + ElevenLabs**: Mejor STT pero más complejidad
-- **Azure Cognitive Services**: Más barato pero menor calidad de voz
-- **Google Cloud TTS**: Buena calidad pero menos opciones de acentos
+- **OpenAI GPT-4o-mini-realtime**: Mayor calidad con latencia ultra-baja y arquitectura simplificada
+- **GPT-4 + TTS externo**: Mejor calidad de texto pero sin tiempo real
+- **Whisper + Claude + TTS**: Múltiples APIs, mayor latencia y complejidad
 
-**Análisis de Costos TTS:**
+#### OpenAI Whisper (STT)
 
-- **ElevenLabs**: ~$0.15 por conversación (STT + TTS)
-- **Whisper + Gemini Flash TTS**: ~$0.10 por conversación (33% más barato)
-- **Whisper + Gemini Pro TTS**: ~$0.20 por conversación (33% más caro)
+**¿Por qué Whisper integrado?**
 
-**Recomendación actualizada:**
+- **Calidad superior**: Mejor transcripción del mercado
+- **Múltiples idiomas**: Soporte nativo para español y acentos
+- **Integración nativa**: Parte del flujo de GPT-4o-mini-realtime
+- **Sin costos adicionales**: Incluido en el precio de la API de tiempo real
 
-- **MVP**: ElevenLabs (simplicidad, acentos regionales)
-- **Optimización de costos**: Whisper + Gemini Flash TTS (33% ahorro)
+#### OpenAI TTS (Síntesis de Voz)
+
+**¿Por qué TTS de OpenAI?**
+
+- **Voces naturales**: Calidad profesional de síntesis
+- **Múltiples voces**: 6 voces diferentes disponibles
+- **Integración perfecta**: Parte del flujo de tiempo real
+- **Latencia mínima**: Sin delays adicionales de conversión
+- **Consistencia**: Mismo proveedor para todo el flujo
+
+**Ventajas del enfoque unificado:**
+
+- **Simplicidad**: Una sola API key, una sola integración
+- **Confiabilidad**: Menos puntos de falla
+- **Mantenimiento**: Menos dependencias externas
+- **Costo predecible**: Un solo modelo de precios
+- **Desarrollo rápido**: Menos tiempo de integración
 
 ### Infrastructure Selection
 
@@ -340,12 +340,18 @@ python:3.11-slim
 - **Vercel**: Gratis (100GB bandwidth)
 - **Fly.io**: Pay-as-you-go (facturas <$5 exoneradas)
 - **Supabase**: Gratis (500MB database)
-- **Claude Sonnet 4**: ~$0.35 por conversación (conversación + análisis)
-- **ElevenLabs**: ~$0.15 por conversación (STT + TTS)
-- **Total por conversación**: ~$0.50
+- **OpenAI GPT-4o-mini-realtime**: ~$0.20 por conversación (STT + conversación + TTS)
+- **Total por conversación**: ~$0.20
 
 #### Escalabilidad
 
-- **100 conversaciones/mes**: ~$50/mes
-- **1000 conversaciones/mes**: ~$500/mes
+- **100 conversaciones/mes**: ~$20/mes
+- **1000 conversaciones/mes**: ~$200/mes
 - **Upgrade paths**: Fácil migrar a planes pagos cuando sea necesario
+
+#### Ventajas de Costo
+
+- **60% más barato**: vs. soluciones multi-API (~$0.50)
+- **Una sola API**: Menos complejidad de facturación
+- **Precios predecibles**: Modelo de tokens estándar
+- **Sin costos ocultos**: Todo incluido en el precio base

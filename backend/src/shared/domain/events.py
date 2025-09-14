@@ -4,7 +4,7 @@ Shared domain events for the conversation simulator.
 from abc import ABC, abstractmethod
 from datetime import datetime
 from typing import Any, Dict
-from uuid import UUID
+from uuid import UUID, uuid4
 
 
 class DomainEvent(ABC):
@@ -12,7 +12,7 @@ class DomainEvent(ABC):
     
     def __init__(self):
         self.occurred_at = datetime.utcnow()
-        self.event_id = UUID.uuid4()
+        self.event_id = uuid4()
     
     @abstractmethod
     def to_dict(self) -> Dict[str, Any]:

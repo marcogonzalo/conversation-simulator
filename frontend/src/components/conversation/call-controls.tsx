@@ -6,6 +6,9 @@ import { Button } from '@/components/ui/button'
 interface CallControlsProps {
   isPlaying: boolean
   isConnected: boolean
+  isRecording: boolean
+  isSpeaking: boolean
+  isWaitingForResponse: boolean
   onStartCall: () => void
   onEndCall: () => void
   onPlayAudio: () => void
@@ -15,6 +18,9 @@ interface CallControlsProps {
 export function CallControls({
   isPlaying,
   isConnected,
+  isRecording,
+  isSpeaking,
+  isWaitingForResponse,
   onStartCall,
   onEndCall,
   onPlayAudio,
@@ -35,6 +41,30 @@ export function CallControls({
       {/* Connected Controls */}
       {isConnected && (
         <>
+          {/* Recording Status */}
+          {isRecording && (
+            <div className="flex items-center gap-2 text-white/80">
+              <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+              <span className="text-sm">Grabando...</span>
+            </div>
+          )}
+
+          {/* Speaking Status */}
+          {isSpeaking && (
+            <div className="flex items-center gap-2 text-white/80">
+              <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+              <span className="text-sm">Hablando...</span>
+            </div>
+          )}
+
+          {/* Waiting for Response Status */}
+          {isWaitingForResponse && (
+            <div className="flex items-center gap-2 text-white/80">
+              <div className="w-3 h-3 bg-yellow-500 rounded-full animate-pulse"></div>
+              <span className="text-sm">Esperando respuesta...</span>
+            </div>
+          )}
+
           {/* Audio Playback Controls */}
           {isPlaying && (
             <Button

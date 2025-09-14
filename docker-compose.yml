@@ -6,21 +6,9 @@ services:
     ports:
       - "8000:8000"
       - "5678:5678"  # Debug port for debugpy
+    env_file:
+      - .env
     environment:
-      - ELEVENLABS_API_KEY=${ELEVENLABS_API_KEY}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY}
-      - AI_PROVIDER=${AI_PROVIDER}
-      - AI_MODEL=${AI_MODEL}
-      - AI_TEMPERATURE=${AI_TEMPERATURE}
-      - AI_MAX_TOKENS=${AI_MAX_TOKENS}
-      - OPENAI_MODEL=${OPENAI_MODEL}
-      - CLAUDE_MODEL=${CLAUDE_MODEL}
-      - AUDIO_SAMPLE_RATE=44100
-      - AUDIO_CHANNELS=1
-      - AUDIO_LATENCY_TARGET=500
       - PYTHONPATH=/app
     volumes:
       - ./backend:/app
@@ -35,9 +23,10 @@ services:
       dockerfile: Dockerfile.dev
     ports:
       - "3000:3000"
+    env_file:
+      - ./frontend/.env
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
-      - NEXT_PUBLIC_WS_URL=ws://localhost:8000/ws
+      - NODE_ENV=development
     volumes:
       - ./frontend:/app
       - /app/node_modules
