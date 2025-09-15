@@ -60,7 +60,7 @@ class VoiceConversationTester:
         audio_repo = MemoryAudioRepository()
         self.voice_service = OpenAIVoiceApplicationService(audio_repo, self.api_config)
         
-        self.persona_repo = YAMLPersonaRepository()
+        self.persona_repo = YAMLPersonaRepository("/app/backend/data/personas")
         
         logger.info("Test services setup completed")
         return True
@@ -96,7 +96,7 @@ class VoiceConversationTester:
         
         try:
             # Connect to WebSocket
-            uri = f"ws://localhost:8000/api/v1/ws/conversation/{conversation_id}"
+            uri = f"ws://backend:8000/api/v1/ws/conversation/{conversation_id}"
             logger.info(f"Connecting to: {uri}")
             
             async with websockets.connect(uri) as websocket:

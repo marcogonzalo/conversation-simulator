@@ -1,0 +1,48 @@
+FROM python:3.11-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    ffmpeg \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Node.js for frontend testing
+RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
+    && apt-get install -y nodejs
+
+# Set working directory
+WORKDIR /app
+
+# Copy backend requirements
+COPY backend/requirements.txt backend/requirements-test.txt ./
+
+# Install Python dependencies
+RUN pip install --no-cache-dir --timeout=300 -r requirements.txt
+RUN pip install --no-cache-dir --timeout=300 -r requirements-test.txt
+
+# Copy frontend package files
+COPY frontend/package*.json ./frontend/
+
+# Install frontend dependencies
+WORKDIR /app/frontend
+RUN npm ci
+
+# Go back to root
+WORKDIR /app
+
+# Copy all source code
+COPY backend/ ./backend/
+COPY frontend/ ./frontend/
+COPY tests/ ./tests/
+
+# Set environment variables
+ENV PYTHONPATH=/app/backend
+ENV NODE_ENV=test
+ENV ENVIRONMENT=test
+
+# Create test directories
+RUN mkdir -p /app/tests/coverage
+RUN mkdir -p /app/frontend/coverage
+
+# Default command
+CMD ["python", "tests/integration/test_voice_conversation_integration.py"]

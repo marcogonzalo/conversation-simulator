@@ -1,0 +1,122 @@
+services:
+  # Backend test service
+  backend-test:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.test
+    environment:
+      - PYTHONPATH=/app
+      - ENVIRONMENT=test
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-test-key}
+      - SUPABASE_URL=${SUPABASE_URL:-http://test-supabase:5432}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY:-test-key}
+    volumes:
+      - ./backend:/app
+      - /app/__pycache__
+      - /app/.pytest_cache
+    command: >
+      sh -c "
+        pip install -r requirements.txt &&
+        pip install -r requirements-test.txt &&
+        pytest tests/ -v --cov=src --cov-report=html --cov-report=term-missing
+      "
+    networks:
+      - test-network
+
+  # Frontend test service
+  frontend-test:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.test
+    environment:
+      - NODE_ENV=test
+      - NEXT_PUBLIC_API_URL=http://backend-test:8000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    command: >
+      sh -c "
+        npm ci &&
+        npm run test:coverage
+      "
+    networks:
+      - test-network
+
+  # Integration test service
+  integration-test:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.integration-test
+    environment:
+      - PYTHONPATH=/app/backend
+      - NODE_ENV=test
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-test-key}
+      - SUPABASE_URL=${SUPABASE_URL:-http://test-supabase:5432}
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY:-test-key}
+      - BACKEND_URL=http://backend:8000
+      - FRONTEND_URL=http://frontend:3000
+    volumes:
+      - .:/app
+    command: >
+      sh -c "
+        echo 'Running integration tests...' &&
+        python tests/integration/test_voice_conversation.py
+      "
+    depends_on:
+      - backend
+      - frontend
+    networks:
+      - test-network
+
+  # Test database
+  test-db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=conversation_simulator_test
+      - POSTGRES_USER=test_user
+      - POSTGRES_PASSWORD=test_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - test-db-data:/var/lib/postgresql/data
+    networks:
+      - test-network
+
+  # Backend service for integration tests
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    environment:
+      - PYTHONPATH=/app
+      - ENVIRONMENT=test
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-test-key}
+      - SUPABASE_URL=postgresql://test_user:test_password@test-db:5432/conversation_simulator_test
+      - SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY:-test-key}
+    ports:
+      - "8000:8000"
+    depends_on:
+      - test-db
+    networks:
+      - test-network
+
+  # Frontend service for integration tests
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    environment:
+      - NODE_ENV=test
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    ports:
+      - "3000:3000"
+    networks:
+      - test-network
+
+volumes:
+  test-db-data:
+
+networks:
+  test-network:
+    driver: bridge

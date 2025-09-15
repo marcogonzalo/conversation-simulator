@@ -11,18 +11,31 @@ import { useConversation, Message } from '@/hooks/useConversation'
 import { AudioService } from '@/services/audioService'
 
 interface ConversationInterfaceProps {
-  conversationId: string
-  personaId: string
-  personaName: string
-  personaAccent: string
+  conversationId?: string
+  personaId?: string
+  personaName?: string
+  personaAccent?: string
+  persona?: {
+    id: string
+    name: string
+    description: string
+    accent: string
+    voice: string
+  }
 }
 
 export function ConversationInterface({ 
-  conversationId, 
+  conversationId = 'test-conversation', 
   personaId, 
   personaName, 
-  personaAccent 
+  personaAccent,
+  persona 
 }: ConversationInterfaceProps) {
+  
+  // Use persona prop if provided, otherwise use individual props
+  const actualPersonaName = persona?.name || personaName || 'Test Persona'
+  const actualPersonaId = persona?.id || personaId || 'test-persona'
+  const actualPersonaAccent = persona?.accent || personaAccent || 'neutral'
   // UI State
   const [callStatus, setCallStatus] = useState<'idle' | 'connecting' | 'connected' | 'disconnected'>('idle')
   const [callDuration, setCallDuration] = useState(0)
@@ -194,7 +207,7 @@ export function ConversationInterface({
   const startCall = async () => {
     setCallStatus('connecting')
     setIsEnding(false)
-    await connect(personaId)
+    await connect(actualPersonaId)
   }
 
   const endCall = () => {
@@ -219,17 +232,20 @@ export function ConversationInterface({
   }
 
   return (
-    <div className="flex flex-col h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+    <div 
+      data-testid="conversation-interface"
+      className="flex flex-col h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900"
+    >
       {/* Header */}
       <div className="bg-white/10 backdrop-blur-sm border-b border-white/20 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center text-white font-bold">
-              {personaName.charAt(0)}
+              {actualPersonaName.charAt(0)}
             </div>
             <div>
-              <h2 className="text-xl font-bold text-white">{personaName}</h2>
-              <p className="text-sm font-medium text-white/80">{personaAccent}</p>
+              <h2 className="text-xl font-bold text-white">{actualPersonaName}</h2>
+              <p className="text-sm font-medium text-white/80">{actualPersonaAccent}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">

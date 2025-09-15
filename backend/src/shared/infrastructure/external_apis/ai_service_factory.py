@@ -73,3 +73,8 @@ class AIServiceFactory:
         from src.conversation.infrastructure.services.ai_conversation_service import AIConversationService
         return AIConversationService(ai_provider, api_key)
     
+    @staticmethod
+    def create_analysis_service(ai_provider: str = None, api_key: str = None):
+        """Create AI analysis service."""
+        from src.analysis.infrastructure.services.ai_analysis_service import AIAnalysisService
+        return AIAnalysisService(ai_provider, api_key)

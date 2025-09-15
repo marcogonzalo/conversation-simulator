@@ -1,95 +1,218 @@
-# Tests
+# Test Suite - Conversation Simulator
 
-This directory contains all test files and scripts for the Conversation Simulator project.
+## Overview
 
-## Structure
+This directory contains the complete test suite for the Conversation Simulator project, including unit tests, integration tests, and end-to-end tests.
+
+## Test Structure
 
 ```
 tests/
-├── scripts/                    # Test scripts
-│   ├── docker-dev.sh          # Docker development helper
-│   └── test_integration_complete.sh  # Complete integration test
+├── scripts/                    # Test execution scripts
+│   ├── run-tests.sh           # Main test runner
+│   ├── test-backend.sh        # Backend tests only
+│   ├── test-frontend.sh       # Frontend tests only
+│   └── test-integration.sh    # Integration tests only
 ├── integration/               # Integration tests
-│   └── test_voice_conversation.py  # Voice conversation integration test
+│   └── test_voice_conversation.py
 └── README.md                  # This file
 ```
 
-## Usage
+## Test Types
 
-### Development Scripts
+### 1. Backend Tests
 
-#### Docker Development Helper
+- **Location**: `backend/tests/`
+- **Framework**: pytest
+- **Coverage**: 80%+ target
+- **Includes**:
+  - Unit tests for services
+  - API endpoint tests
+  - WebSocket tests
+  - Database tests
+
+### 2. Frontend Tests
+
+- **Location**: `frontend/src/**/__tests__/`
+- **Framework**: Jest + React Testing Library
+- **Coverage**: 80%+ target
+- **Includes**:
+  - Component tests
+  - Hook tests
+  - Service tests
+  - Integration tests
+
+### 3. Integration Tests
+
+- **Location**: `tests/integration/`
+- **Framework**: Python + pytest
+- **Includes**:
+  - End-to-end voice conversation flow
+  - WebSocket communication tests
+  - Audio processing tests
+
+## Running Tests
+
+### Prerequisites
+
+1. Docker and Docker Compose installed
+2. Environment variables set (see `.env.example`)
+
+### Quick Start
+
 ```bash
-# From project root
-./tests/scripts/docker-dev.sh [start|stop|restart|logs|status|rebuild]
+# Run all tests
+./tests/scripts/run-tests.sh
+
+# Run specific test types
+./tests/scripts/run-tests.sh --type backend
+./tests/scripts/run-tests.sh --type frontend
+./tests/scripts/run-tests.sh --type integration
+
+# Run without coverage
+./tests/scripts/run-tests.sh --no-coverage
+
+# Run with verbose output
+./tests/scripts/run-tests.sh --verbose
 ```
 
-**Commands:**
-- `start` - Start all services (default)
-- `stop` - Stop all services
-- `restart` - Restart all services
-- `logs` - Show logs
-- `status` - Show service status
-- `rebuild` - Rebuild and start services
+### Individual Test Suites
 
-#### Complete Integration Test
 ```bash
-# From project root
-./tests/scripts/test_integration_complete.sh
+# Backend only
+./tests/scripts/test-backend.sh
+
+# Frontend only
+./tests/scripts/test-frontend.sh
+
+# Integration only
+./tests/scripts/test-integration.sh
 ```
 
-This script will:
-1. Check environment variables
-2. Start backend services if needed
-3. Run the complete voice conversation integration test
-4. Report results
+### Manual Docker Commands
 
-### Integration Tests
-
-#### Voice Conversation Test
 ```bash
-# Run directly
-python tests/integration/test_voice_conversation.py
+# Backend tests
+docker-compose -f docker-compose.test.yml run --rm backend-test
 
-# Or via Docker
-docker-compose exec backend python tests/integration/test_voice_conversation.py
+# Frontend tests
+docker-compose -f docker-compose.test.yml run --rm frontend-test
+
+# Integration tests
+docker-compose -f docker-compose.test.yml up -d backend frontend test-db
+docker-compose -f docker-compose.test.yml run --rm integration-test
+docker-compose -f docker-compose.test.yml down
 ```
 
-This test verifies:
-- Persona loading
-- Conversation creation
-- WebSocket communication
-- Audio message handling
-- Voice conversation flow
+## Test Configuration
 
-## Prerequisites
+### Backend (pytest)
 
-- Docker and Docker Compose
-- OpenAI API key in `.env` file
-- Backend services running (or script will start them)
+- **Config**: `backend/pytest.ini`
+- **Coverage**: HTML and terminal reports
+- **Parallel**: Uses pytest-xdist for parallel execution
+- **Mocking**: pytest-mock for service mocking
 
-## Environment Variables
+### Frontend (Jest)
 
-Required in `.env`:
-```bash
-OPENAI_API_KEY=sk-your-key-here
-SUPABASE_URL=your_supabase_url_here
-SUPABASE_ANON_KEY=your_supabase_anon_key_here
+- **Config**: `frontend/jest.config.js`
+- **Setup**: `frontend/jest.setup.js`
+- **Coverage**: LCOV and HTML reports
+- **Mocking**: Jest mocks for Web APIs
+
+### Integration
+
+- **Database**: PostgreSQL test database
+- **Services**: Full stack with mocked external APIs
+- **Audio**: Mocked audio processing
+
+## Coverage Reports
+
+After running tests, coverage reports are generated:
+
+- **Backend**: `backend/htmlcov/index.html`
+- **Frontend**: `frontend/coverage/lcov-report/index.html`
+
+## Test Data
+
+### Mock Data
+
+- **Personas**: Test personas for different scenarios
+- **Conversations**: Sample conversation data
+- **Audio**: Mock audio files for testing
+
+### Test Database
+
+- **Type**: PostgreSQL
+- **Port**: 5433 (to avoid conflicts)
+- **Database**: `conversation_simulator_test`
+- **User**: `test_user`
+- **Password**: `test_password`
+
+## Continuous Integration
+
+### GitHub Actions (Future)
+
+```yaml
+name: Tests
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Run tests
+        run: ./tests/scripts/run-tests.sh
 ```
+
+## Debugging Tests
+
+### Backend
+
+```bash
+# Run with debug output
+docker-compose -f docker-compose.test.yml run --rm backend-test pytest tests/ -v -s
+
+# Run specific test
+docker-compose -f docker-compose.test.yml run --rm backend-test pytest tests/test_audio_service.py::test_audio_processing -v
+```
+
+### Frontend
+
+```bash
+# Run with debug output
+docker-compose -f docker-compose.test.yml run --rm frontend-test npm run test -- --verbose
+
+# Run specific test
+docker-compose -f docker-compose.test.yml run --rm frontend-test npm run test -- --testNamePattern="ConversationInterface"
+```
+
+## Best Practices
+
+1. **Test Isolation**: Each test should be independent
+2. **Mocking**: Mock external dependencies (APIs, databases)
+3. **Coverage**: Aim for 80%+ coverage
+4. **Performance**: Tests should run quickly
+5. **Reliability**: Tests should be deterministic
+6. **Documentation**: Write clear test descriptions
 
 ## Troubleshooting
 
-### Backend Not Starting
-- Check Docker is running
-- Verify `.env` file exists and has required variables
-- Check port 8000 is not in use
+### Common Issues
 
-### WebSocket Connection Failed
-- Ensure backend is running on port 8000
-- Check firewall settings
-- Verify WebSocket endpoint is accessible
+1. **Docker not running**: Start Docker Desktop
+2. **Port conflicts**: Check if ports 3000, 8000, 5433 are free
+3. **Permission errors**: Run `chmod +x tests/scripts/*.sh`
+4. **Environment variables**: Check `.env` file exists
 
-### Audio Test Fails
-- Verify OpenAI API key is valid
-- Check internet connection
-- Ensure audio format is supported
+### Cleanup
+
+```bash
+# Clean up test containers and volumes
+docker-compose -f docker-compose.test.yml down -v
+
+# Remove test images
+docker rmi conversation-simulator_backend-test
+docker rmi conversation-simulator_frontend-test
+docker rmi conversation-simulator_integration-test
+```

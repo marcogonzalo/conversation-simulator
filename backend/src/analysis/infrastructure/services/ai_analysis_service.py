@@ -27,7 +27,7 @@ class AIAnalysisService:
         """Analyze conversation using AI."""
         try:
             # This is a placeholder implementation
-            # In a real system, this would use Claude Sonnet 4 to analyze the conversation
+            # In a real system, this would use OpenAI GPT-4o-mini-realtime to analyze the conversation
             
             messages = conversation_data.get('messages', [])
             duration_seconds = conversation_data.get('duration_seconds', 0)
