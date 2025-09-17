@@ -23,8 +23,8 @@ class OpenAIVoiceService:
     
     # OpenAI Voice API constants
     OPENAI_SAMPLE_RATE = 24000  # OpenAI uses 24kHz for voice API
-    OPENAI_INPUT_FORMAT = "pcm_s16le"
-    OPENAI_OUTPUT_FORMAT = "pcm_s16le"
+    OPENAI_INPUT_FORMAT = "pcm16"  # OpenAI expects pcm16 format
+    OPENAI_OUTPUT_FORMAT = "pcm16"  # OpenAI expects pcm16 format
     
     def __init__(self, api_config: APIConfig):
         self.api_config = api_config
