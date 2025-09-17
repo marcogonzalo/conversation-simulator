@@ -5,8 +5,10 @@ import { Badge } from '@/components/ui/badge'
 import { Avatar } from './avatar'
 import { CallControls } from './call-controls'
 import { CallStatus } from './call-status'
+import { MicrophonePermission } from './microphone-permission'
 import { useAudioRecording } from '@/hooks/useAudioRecording'
 import { useWebSocket } from '@/hooks/useWebSocket'
+import { useMicrophonePermission } from '@/hooks/useMicrophonePermission'
 import { useConversation, Message } from '@/hooks/useConversation'
 import { AudioService } from '@/services/audioService'
 
@@ -42,6 +44,7 @@ export function ConversationInterface({
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null)
   const [isEnding, setIsEnding] = useState(false)
+  const [isReadyToSpeak, setIsReadyToSpeak] = useState(false)
   
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -50,6 +53,10 @@ export function ConversationInterface({
   // Event Handlers (defined before hooks that use them)
   const handleConnect = () => {
     setCallStatus('connected')
+    // Set ready to speak after a short delay to allow connection to stabilize
+    setTimeout(() => {
+      setIsReadyToSpeak(true)
+    }, 1000)
   }
 
   const handleDisconnect = () => {
@@ -57,6 +64,7 @@ export function ConversationInterface({
     setCallDuration(0)
     setIsPlaying(false)
     setCurrentAudio(null)
+    setIsReadyToSpeak(false)
     cleanup()
   }
 
@@ -146,6 +154,8 @@ export function ConversationInterface({
         
       case 'persona_info':
         console.log('Persona info:', data.name, data.accent)
+        // Mark as ready to speak when persona info is received
+        setIsReadyToSpeak(true)
         setTimeout(() => startRecording(), 500)
         break
         
@@ -166,6 +176,18 @@ export function ConversationInterface({
     onConnect: handleConnect,
     onDisconnect: handleDisconnect
   })
+
+  const { permissionStatus, isRequesting, error, requestPermission } = useMicrophonePermission({
+    onPermissionGranted: () => {
+      console.log('✅ Microphone permission granted')
+    },
+    onPermissionDenied: () => {
+      console.log('❌ Microphone permission denied')
+    }
+  })
+
+  // Only show permission component if not connected and permission not granted
+  const shouldShowPermissionComponent = !isConnected && permissionStatus !== 'granted'
 
   const { isRecording, isSpeaking, startRecording, stopRecording, cleanup } = useAudioRecording({
     onAudioReady: handleAudioReady,
@@ -205,21 +227,41 @@ export function ConversationInterface({
 
   // Main Actions
   const startCall = async () => {
+    // Check microphone permission first
+    if (permissionStatus !== 'granted') {
+      console.log('⚠️ Microphone permission not granted, requesting...')
+      await requestPermission()
+      return
+    }
+    
     setCallStatus('connecting')
     setIsEnding(false)
+    setIsReadyToSpeak(false)
     await connect(actualPersonaId)
   }
 
   const endCall = () => {
+    console.log('📞 End call initiated')
     setIsEnding(true)
+    
+    // Immediately stop recording and cleanup
     if (isRecording) {
+      console.log('📞 Stopping recording...')
       stopRecording()
     }
     
+    // Force cleanup of audio resources
+    console.log('📞 Cleaning up audio resources...')
+    cleanup()
+    
     setTimeout(() => {
+      console.log('📞 Sending end_voice_conversation message')
       sendMessage({ type: 'end_voice_conversation' })
-      setTimeout(() => disconnect(), 100)
-    }, 2000)
+      setTimeout(() => {
+        console.log('📞 Disconnecting WebSocket')
+        disconnect()
+      }, 100)
+    }, 1000) // Reduced timeout for faster cleanup
   }
 
   const stopAudio = () => {
@@ -260,40 +302,53 @@ export function ConversationInterface({
       <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-8 p-8">
         {/* Left Column: Call Interface */}
         <div className="md:col-span-3 flex flex-col items-center justify-center p-8 bg-black/20 rounded-2xl">
-          {/* Avatar */}
-          <div className="mb-8">
-            <Avatar 
-              size="xl" 
-              isActive={isConnected} 
-              isSpeaking={isSpeaking}
-              className="mb-4"
+          {/* Show microphone permission component only when not connected and permission not granted */}
+          {shouldShowPermissionComponent ? (
+            <MicrophonePermission
+              permissionStatus={permissionStatus}
+              isRequesting={isRequesting}
+              error={error}
+              onRequestPermission={requestPermission}
             />
-          </div>
+          ) : (
+            <>
+              {/* Avatar */}
+              <div className="mb-8">
+                <Avatar 
+                  size="xl" 
+                  isActive={isConnected} 
+                  isSpeaking={isSpeaking}
+                  className="mb-4"
+                />
+              </div>
 
-          {/* Call Status */}
-          <div className="mb-8">
-            <CallStatus 
-              status={callStatus}
-              duration={callDuration}
-              isConnected={isConnected}
-              isRecording={isRecording}
-            />
-          </div>
+              {/* Call Status */}
+              <div className="mb-8">
+                <CallStatus 
+                  status={callStatus}
+                  duration={callDuration}
+                  isConnected={isConnected}
+                  isRecording={isRecording}
+                  isReadyToSpeak={isReadyToSpeak}
+                />
+              </div>
 
-          {/* Call Controls */}
-          <div className="mb-8">
-            <CallControls
-              isPlaying={isPlaying}
-              isConnected={isConnected}
-              isRecording={isRecording}
-              isSpeaking={isSpeaking}
-              isWaitingForResponse={isWaitingForResponse}
-              onStartCall={startCall}
-              onEndCall={endCall}
-              onPlayAudio={() => {}}
-              onStopAudio={stopAudio}
-            />
-          </div>
+              {/* Call Controls */}
+              <div className="mb-8">
+                <CallControls
+                  isPlaying={isPlaying}
+                  isConnected={isConnected}
+                  isRecording={isRecording}
+                  isSpeaking={isSpeaking}
+                  isWaitingForResponse={isWaitingForResponse}
+                  onStartCall={startCall}
+                  onEndCall={endCall}
+                  onPlayAudio={() => {}}
+                  onStopAudio={stopAudio}
+                />
+              </div>
+            </>
+          )}
         </div>
 
         {/* Right Column: Chat History */}

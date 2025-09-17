@@ -19,6 +19,8 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
   const vadIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   const stopRecording = useCallback(() => {
+    console.log('🛑 stopRecording called')
+    
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop()
       setIsRecording(false)
@@ -26,17 +28,20 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
     
     // Cleanup VAD
     if (vadIntervalRef.current) {
+      console.log('🛑 Cleaning up VAD interval')
       clearInterval(vadIntervalRef.current)
       vadIntervalRef.current = null
     }
     
     if (audioContextRef.current) {
+      console.log('🛑 Closing audio context')
       audioContextRef.current.close()
       audioContextRef.current = null
     }
     
     setIsSpeaking(false)
   }, [isRecording])
+
 
   const setupVoiceActivityDetection = useCallback((stream: MediaStream) => {
     try {
@@ -51,11 +56,16 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
       const bufferLength = analyserRef.current.frequencyBinCount
       dataArrayRef.current = new Uint8Array(bufferLength)
       
-      const VAD_THRESHOLD = 20
+      const VAD_THRESHOLD = 15 // Lowered threshold for better sensitivity
+      const SILENCE_DURATION_THRESHOLD = 2000 // 2 seconds of silence before stopping
       let vadLogCounter = 0
+      let silenceStartTime: number | null = null
+      let lastVoiceTime = 0
       
       const checkVoiceActivity = () => {
         if (!analyserRef.current || !dataArrayRef.current) return
+        
+        const now = Date.now()
         
         // Create a new Uint8Array with proper typing
         const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount)
@@ -69,18 +79,34 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
         }
         
         if (average > VAD_THRESHOLD) {
+          // Voice detected
           if (!isSpeaking) {
             console.log(`🎤 Voice detected (volume: ${average.toFixed(2)})`)
             setIsSpeaking(true)
           }
+          lastVoiceTime = now
+          silenceStartTime = null // Reset silence timer
         } else {
+          // Silence detected
           if (isSpeaking) {
             console.log(`🎤 Silence detected (volume: ${average.toFixed(2)})`)
             setIsSpeaking(false)
             
-            // Stop recording when silence detected
-            if (isRecording && !isWaitingForResponse) {
-              console.log('🎤 Stopping recording due to silence')
+            // Start silence timer if not already started
+            if (silenceStartTime === null) {
+              silenceStartTime = now
+            }
+          }
+          
+          // Check if we've had enough silence to stop recording
+          if (isRecording && !isWaitingForResponse && silenceStartTime !== null) {
+            const silenceDuration = now - silenceStartTime
+            const timeSinceLastVoice = now - lastVoiceTime
+            
+            // Only stop if we've had silence for the threshold duration
+            // and there has been at least some voice activity before
+            if (silenceDuration >= SILENCE_DURATION_THRESHOLD && lastVoiceTime > 0) {
+              console.log(`🎤 Stopping recording due to ${silenceDuration}ms of silence`)
               stopRecording()
             }
           }
@@ -154,6 +180,14 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
       streamRef.current = null
     }
   }, [stopRecording])
+
+  // Cleanup when ending
+  useEffect(() => {
+    if (isEnding) {
+      console.log('🛑 isEnding is true, cleaning up VAD and recording')
+      cleanup()
+    }
+  }, [isEnding, cleanup])
 
   return {
     isRecording,

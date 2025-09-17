@@ -8,9 +8,10 @@ interface CallStatusProps {
   duration?: number
   isConnected: boolean
   isRecording?: boolean
+  isReadyToSpeak?: boolean
 }
 
-export function CallStatus({ status, duration, isConnected, isRecording }: CallStatusProps) {
+export function CallStatus({ status, duration, isConnected, isRecording, isReadyToSpeak }: CallStatusProps) {
   const getStatusInfo = () => {
     switch (status) {
       case 'idle':
@@ -18,7 +19,11 @@ export function CallStatus({ status, duration, isConnected, isRecording }: CallS
       case 'connecting':
         return { text: 'Conectando...', color: 'bg-yellow-500', icon: <Wifi className="h-4 w-4 animate-pulse" /> }
       case 'connected':
-        return { text: 'Conectado', color: 'bg-green-500', icon: <Wifi className="h-4 w-4" /> }
+        if (isReadyToSpeak) {
+          return { text: 'Listo para hablar', color: 'bg-green-500', icon: <Wifi className="h-4 w-4" /> }
+        } else {
+          return { text: 'Conectado', color: 'bg-blue-500', icon: <Wifi className="h-4 w-4" /> }
+        }
       case 'disconnected':
         return { text: 'Desconectado', color: 'bg-red-500', icon: <WifiOff className="h-4 w-4" /> }
       default:
@@ -56,14 +61,27 @@ export function CallStatus({ status, duration, isConnected, isRecording }: CallS
       {/* Microphone Status */}
       {isConnected && isRecording && (
         <div className="text-center">
-          <span className="text-sm font-medium text-green-400">Micrófono activo</span>
+          <div className="flex items-center gap-2 text-green-400">
+            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+            <span className="text-sm font-medium">Grabando audio...</span>
+          </div>
+        </div>
+      )}
+
+      {/* Ready to Speak Status */}
+      {isConnected && isReadyToSpeak && !isRecording && (
+        <div className="text-center">
+          <span className="text-sm font-medium text-green-400">Puedes empezar a hablar</span>
         </div>
       )}
 
       {/* Connection Status */}
       <div className="text-center">
         <p className="text-sm text-white/60">
-          {isConnected ? 'Conexión estable' : 'Verificando conexión...'}
+          {isConnected 
+            ? (isReadyToSpeak ? 'Conexión estable - Listo para conversar' : 'Estableciendo comunicación...')
+            : 'Verificando conexión...'
+          }
         </p>
       </div>
     </div>
