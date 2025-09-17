@@ -8,7 +8,7 @@ import base64
 import websockets
 import io
 import wave
-from typing import Optional, Dict, Any, AsyncGenerator, Callable
+from typing import Optional, Dict, Any, AsyncGenerator, Callable, List
 from datetime import datetime
 import struct
 
@@ -35,6 +35,12 @@ class OpenAIVoiceService:
         self.conversation_id: Optional[str] = None
         self._event_handlers: Dict[str, Callable] = {}
         self._listen_task: Optional[asyncio.Task] = None
+        
+        # Audio accumulation system
+        self._audio_buffer: List[bytes] = []
+        self._audio_timer: Optional[asyncio.Task] = None
+        self._is_processing_audio = False
+        self._audio_timeout = 0.5  # seconds to wait before processing accumulated audio
         
     async def __aenter__(self):
         """Async context manager entry."""
@@ -79,6 +85,12 @@ class OpenAIVoiceService:
                 "OpenAI-Beta": "realtime=v1"
             }
             
+            # Debug: Log headers and API key info
+            logger.info(f"OpenAI API Key length: {len(self.api_config.openai_api_key) if self.api_config.openai_api_key else 0}")
+            logger.info(f"OpenAI API Key prefix: {self.api_config.openai_api_key[:10] if self.api_config.openai_api_key else 'None'}...")
+            logger.info(f"WebSocket URL: {url}")
+            logger.info(f"Headers: {headers}")
+            
             # Connect to OpenAI WebSocket  
             self.websocket = await websockets.connect(
                 url, 
@@ -111,6 +123,14 @@ class OpenAIVoiceService:
                 except asyncio.CancelledError:
                     pass
             
+            # Cancel audio timer task
+            if self._audio_timer and not self._audio_timer.done():
+                self._audio_timer.cancel()
+                try:
+                    await self._audio_timer
+                except asyncio.CancelledError:
+                    pass
+            
             # Close WebSocket connection
             if self.websocket and not self.websocket.closed:
                 await self.websocket.close()
@@ -122,9 +142,13 @@ class OpenAIVoiceService:
             self.session_id = None
             self.websocket = None
             self._listen_task = None
+            # Reset audio accumulation system
+            self._audio_buffer.clear()
+            self._audio_timer = None
+            self._is_processing_audio = False
     
     async def send_audio(self, audio_data: bytes) -> bool:
-        """Send audio data to OpenAI."""
+        """Send audio data to OpenAI using accumulation system to prevent overlapping responses."""
         if not self.is_connected or not self.websocket:
             logger.warning("Not connected to OpenAI voice service")
             return False
@@ -136,10 +160,56 @@ class OpenAIVoiceService:
                 logger.error("Failed to convert audio to PCM16")
                 return False
             
-            # Encode audio as base64
-            audio_base64 = base64.b64encode(pcm_audio).decode('utf-8')
+            # Add to audio buffer
+            self._audio_buffer.append(pcm_audio)
+            logger.info(f"Added audio chunk to buffer. Buffer size: {len(self._audio_buffer)} chunks")
             
-            # Send audio input event to OpenAI
+            # Cancel existing timer if it exists
+            if self._audio_timer and not self._audio_timer.done():
+                self._audio_timer.cancel()
+            
+            # Start new timer to process accumulated audio
+            self._audio_timer = asyncio.create_task(self._process_accumulated_audio())
+            
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error accumulating audio: {e}")
+            return False
+    
+    async def _process_accumulated_audio(self):
+        """Process all accumulated audio chunks as a single request to OpenAI."""
+        try:
+            # Wait for the timeout period
+            await asyncio.sleep(self._audio_timeout)
+            
+            # Check if we're already processing audio to prevent multiple simultaneous processing
+            if self._is_processing_audio:
+                logger.info("Audio already being processed, skipping")
+                return
+            
+            if not self._audio_buffer:
+                logger.info("No audio chunks to process")
+                return
+            
+            if not self.is_connected or not self.websocket:
+                logger.warning("Not connected to OpenAI voice service during audio processing")
+                return
+            
+            self._is_processing_audio = True
+            
+            logger.info(f"Processing {len(self._audio_buffer)} accumulated audio chunks")
+            
+            # Concatenate all audio chunks
+            combined_audio = b''.join(self._audio_buffer)
+            
+            # Clear the buffer
+            self._audio_buffer.clear()
+            
+            # Encode combined audio as base64
+            audio_base64 = base64.b64encode(combined_audio).decode('utf-8')
+            
+            # Send combined audio to OpenAI
             event = {
                 "type": "input_audio_buffer.append",
                 "audio": audio_base64
@@ -163,11 +233,14 @@ class OpenAIVoiceService:
             }
             await self.websocket.send(json.dumps(response_event))
             
-            return True
+            logger.info("Sent combined audio request to OpenAI")
             
+        except asyncio.CancelledError:
+            logger.info("Audio processing timer cancelled (more audio arrived)")
         except Exception as e:
-            logger.error(f"Error sending audio to OpenAI: {e}")
-            return False
+            logger.error(f"Error processing accumulated audio: {e}")
+        finally:
+            self._is_processing_audio = False
     
     async def _configure_session(self, persona_config: Dict[str, Any]):
         """Configure the OpenAI session with persona settings."""

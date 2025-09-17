@@ -34,12 +34,19 @@ export class AudioService {
   }
 
   static createAudioElement(audioData: string): HTMLAudioElement {
-    // Decode base64 to get WAV data (already has header from backend)
-    const wavData = Uint8Array.from(atob(audioData), c => c.charCodeAt(0))
-    
-    // Backend already sends complete WAV file with correct header
-    const audioBlob = new Blob([wavData], { type: 'audio/wav' })
-    const audioUrl = URL.createObjectURL(audioBlob)
-    return new Audio(audioUrl)
+    try {
+      // Decode base64 to get WebM data
+      const webmData = Uint8Array.from(atob(audioData), c => c.charCodeAt(0))
+      
+      // Create WebM audio blob
+      const audioBlob = new Blob([webmData], { type: 'audio/webm; codecs=opus' })
+      const audioUrl = URL.createObjectURL(audioBlob)
+      
+      const audio = new Audio(audioUrl)
+      return audio
+    } catch (error) {
+      console.error('Error creating audio element:', error)
+      throw error
+    }
   }
 }

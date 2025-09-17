@@ -117,23 +117,27 @@ export function ConversationInterface({
         // Clear waiting state
         console.log('📨 Setting isWaitingForResponse to false')
         setIsWaitingForResponse(false)
-        
-        // Add message for AI audio response
-        addMessage({ content: '[Audio response]', sender: 'ai', isAudio: true })
-        
+      
         if (data.audio_data) {
           console.log('📨 Creating audio element from base64 data...')
+          console.log('📨 Audio data length:', data.audio_data.length)
+          console.log('📨 Audio data preview:', data.audio_data.substring(0, 50) + '...')
+          
           try {
             const audio = AudioService.createAudioElement(data.audio_data)
             setCurrentAudio(audio)
             
             audio.oncanplaythrough = () => {
-              console.log('📨 Audio ready to play, starting playback...')
-              audio.play().catch(e => console.error("Audio play failed:", e))
+              audio.play().catch(e => {
+                console.error("Audio play failed:", e)
+              })
+            }
+            
+            audio.onerror = (e) => {
+              console.error('Audio error:', e)
             }
 
             audio.onended = () => {
-              console.log('📨 Audio playback ended, restarting recording...')
               setIsPlaying(false)
               setCurrentAudio(null)
               URL.revokeObjectURL(audio.src)
@@ -141,13 +145,11 @@ export function ConversationInterface({
             }
             
             setIsPlaying(true)
-            console.log('📨 Audio element created and playing set to true')
           } catch (error) {
-            console.error('❌ Error creating audio element:', error)
+            console.error('Error creating audio element:', error)
             setTimeout(() => startRecording(), 1000)
           }
         } else {
-          console.log('📨 No audio data, restarting recording in 1 second')
           setTimeout(() => startRecording(), 1000)
         }
         break

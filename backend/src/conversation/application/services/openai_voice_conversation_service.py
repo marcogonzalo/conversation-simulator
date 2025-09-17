@@ -37,36 +37,61 @@ class OpenAIVoiceConversationService:
         # Audio accumulation for complete responses
         self.audio_chunks: Dict[str, list] = {}
         
-    async def _create_wav_from_pcm(self, pcm_data: bytes, sample_rate: int = 2000) -> bytes:
-        """Create WAV file from PCM16 data with correct sample rate."""
-        import struct
-        import io
+    async def _convert_pcm_to_webm(self, pcm_data: bytes, sample_rate: int = 24000) -> bytes:
+        """Convert PCM16 audio data to WebM format for frontend compatibility using ffmpeg."""
+        import subprocess
+        import tempfile
+        import os
         
-        # WAV file format constants
-        num_channels = 1  # Mono
-        bits_per_sample = 16  # 16-bit
-        byte_rate = sample_rate * num_channels * bits_per_sample // 8
-        block_align = num_channels * bits_per_sample // 8
-        
-        # Create WAV header
-        wav_header = struct.pack(
-            '<4sL4s4sLHHLLHH4sL',
-            b'RIFF',
-            36 + len(pcm_data),  # File size - 8
-            b'WAVE',
-            b'fmt ',
-            16,  # Subchunk1Size for PCM
-            1,   # AudioFormat (PCM)
-            num_channels,
-            sample_rate,
-            byte_rate,
-            block_align,
-            bits_per_sample,
-            b'data',
-            len(pcm_data)
-        )
-        
-        return wav_header + pcm_data
+        try:
+            # Create temporary files for input and output
+            with tempfile.NamedTemporaryFile(suffix='.pcm', delete=False) as pcm_file:
+                pcm_file.write(pcm_data)
+                pcm_path = pcm_file.name
+            
+            with tempfile.NamedTemporaryFile(suffix='.webm', delete=False) as webm_file:
+                webm_path = webm_file.name
+            
+            try:
+                # Use ffmpeg to convert PCM16 to WebM with Opus codec
+                cmd = [
+                    'ffmpeg',
+                    '-f', 's16le',  # Input format: signed 16-bit little-endian PCM
+                    '-ar', str(sample_rate),  # Sample rate
+                    '-ac', '1',  # Mono channel
+                    '-i', pcm_path,  # Input file
+                    '-c:a', 'libopus',  # Audio codec: Opus
+                    '-b:a', '32k',  # Higher bitrate for better quality
+                    '-application', 'voip',  # Optimize for voice
+                    '-f', 'webm',  # Output format
+                    '-y',  # Overwrite output file
+                    webm_path  # Output file
+                ]
+                
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+                
+                if result.returncode != 0:
+                    logger.error(f"FFmpeg error: {result.stderr}")
+                    return b''
+                
+                # Read the converted WebM file
+                with open(webm_path, 'rb') as f:
+                    webm_data = f.read()
+                
+                return webm_data
+                
+            finally:
+                # Clean up temporary files
+                try:
+                    os.unlink(pcm_path)
+                    os.unlink(webm_path)
+                except OSError:
+                    pass
+                    
+        except Exception as e:
+            logger.error(f"Error converting PCM to WebM: {e}")
+            return b''
+    
     
     async def _send_complete_audio_response(self, conversation_id: str):
         """Send complete audio response after accumulating all chunks."""
@@ -78,12 +103,12 @@ class OpenAIVoiceConversationService:
             # Combine all PCM chunks
             complete_pcm = b''.join(self.audio_chunks[conversation_id])
             
-            # Create WAV file with configurable playback sample rate
+            # Convert PCM16 to WebM for frontend compatibility
             playback_sample_rate = self.voice_service.api_config.audio_playback_sample_rate
-            wav_data = await self._create_wav_from_pcm(complete_pcm, sample_rate=playback_sample_rate)
+            webm_data = await self._convert_pcm_to_webm(complete_pcm, sample_rate=playback_sample_rate)
             
             # Convert to base64 for WebSocket transmission
-            audio_base64 = base64.b64encode(wav_data).decode('utf-8')
+            audio_base64 = base64.b64encode(webm_data).decode('utf-8')
             
             # Send the complete audio response
             await send_audio_response(conversation_id, audio_base64)
