@@ -17,24 +17,27 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
   const analyserRef = useRef<AnalyserNode | null>(null)
   const dataArrayRef = useRef<Uint8Array | null>(null)
   const vadIntervalRef = useRef<NodeJS.Timeout | null>(null)
+  const isMountedRef = useRef(true)
+  const isCleanedUpRef = useRef(false)
 
   const stopRecording = useCallback(() => {
-    console.log('🛑 stopRecording called')
+    // Prevent multiple calls
+    if (!isRecording) {
+      return
+    }
     
-    if (mediaRecorderRef.current && isRecording) {
+    if (mediaRecorderRef.current) {
       mediaRecorderRef.current.stop()
       setIsRecording(false)
     }
     
     // Cleanup VAD
     if (vadIntervalRef.current) {
-      console.log('🛑 Cleaning up VAD interval')
       clearInterval(vadIntervalRef.current)
       vadIntervalRef.current = null
     }
     
     if (audioContextRef.current) {
-      console.log('🛑 Closing audio context')
       audioContextRef.current.close()
       audioContextRef.current = null
     }
@@ -45,6 +48,11 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
 
   const setupVoiceActivityDetection = useCallback((stream: MediaStream) => {
     try {
+      // Check if component is cleaned up or unmounted
+      if (isCleanedUpRef.current || !isMountedRef.current) {
+        return
+      }
+      
       audioContextRef.current = new AudioContext()
       const source = audioContextRef.current.createMediaStreamSource(stream)
       analyserRef.current = audioContextRef.current.createAnalyser()
@@ -61,9 +69,19 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
       let vadLogCounter = 0
       let silenceStartTime: number | null = null
       let lastVoiceTime = 0
+      let hasDetectedVoice = false // Track if we've detected any voice at all
+      let isProcessingStop = false // Prevent multiple stop calls
       
       const checkVoiceActivity = () => {
-        if (!analyserRef.current || !dataArrayRef.current) return
+        // Early return if component is unmounted, cleaned up, not recording, already processing stop, or ending
+        if (!isMountedRef.current || isCleanedUpRef.current || !isRecording || isProcessingStop || isEnding || !analyserRef.current || !dataArrayRef.current) {
+          // Stop the interval immediately if conditions are not met
+          if (vadIntervalRef.current) {
+            clearInterval(vadIntervalRef.current)
+            vadIntervalRef.current = null
+          }
+          return
+        }
         
         const now = Date.now()
         
@@ -86,6 +104,7 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
           }
           lastVoiceTime = now
           silenceStartTime = null // Reset silence timer
+          hasDetectedVoice = true // Mark that we've detected voice
         } else {
           // Silence detected
           if (isSpeaking) {
@@ -99,13 +118,13 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
           }
           
           // Check if we've had enough silence to stop recording
-          if (isRecording && !isWaitingForResponse && silenceStartTime !== null) {
+          // Only if we're not waiting for response and we've detected voice before
+          if (!isWaitingForResponse && silenceStartTime !== null && hasDetectedVoice) {
             const silenceDuration = now - silenceStartTime
-            const timeSinceLastVoice = now - lastVoiceTime
             
             // Only stop if we've had silence for the threshold duration
-            // and there has been at least some voice activity before
-            if (silenceDuration >= SILENCE_DURATION_THRESHOLD && lastVoiceTime > 0) {
+            if (silenceDuration >= SILENCE_DURATION_THRESHOLD) {
+              isProcessingStop = true // Prevent multiple calls
               console.log(`🎤 Stopping recording due to ${silenceDuration}ms of silence`)
               stopRecording()
             }
@@ -117,12 +136,11 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
     } catch (error) {
       console.error('❌ Error setting up VAD:', error)
     }
-  }, [isSpeaking, isRecording, isWaitingForResponse, stopRecording])
+  }, [isSpeaking, isRecording, isWaitingForResponse, isEnding, stopRecording])
 
   // Setup VAD when recording starts
   useEffect(() => {
     if (isRecording && streamRef.current) {
-      console.log('🎤 Setting up VAD for recording...')
       setupVoiceActivityDetection(streamRef.current)
     }
   }, [isRecording, setupVoiceActivityDetection])
@@ -130,6 +148,11 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
   const startRecording = useCallback(async () => {
     try {
       console.log('🎤 Starting recording...')
+      
+      // Check if component is cleaned up or unmounted
+      if (isCleanedUpRef.current || !isMountedRef.current) {
+        return
+      }
       
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       streamRef.current = stream
@@ -151,10 +174,7 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
         
         if (audioBlob.size > 1000) {
-          console.log('🎤 Audio ready, size:', audioBlob.size, 'bytes')
           onAudioReady(audioBlob)
-        } else {
-          console.log('🎤 Audio too small, skipping')
         }
         
         // Cleanup stream
@@ -173,21 +193,118 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
   }, [setupVoiceActivityDetection, onAudioReady])
 
   const cleanup = useCallback(() => {
-    stopRecording()
+    // Mark as cleaned up immediately
+    isCleanedUpRef.current = true
     
+    // Force cleanup VAD immediately - try multiple times to ensure it's cleared
+    if (vadIntervalRef.current) {
+      clearInterval(vadIntervalRef.current)
+      vadIntervalRef.current = null
+    }
+    
+    // Additional cleanup attempt after a short delay
+    setTimeout(() => {
+      if (vadIntervalRef.current) {
+        clearInterval(vadIntervalRef.current)
+        vadIntervalRef.current = null
+      }
+    }, 100)
+    
+    // Stop recording
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop()
+      mediaRecorderRef.current = null
+    }
+    
+    // Force cleanup audio context
+    if (audioContextRef.current) {
+      audioContextRef.current.close()
+      audioContextRef.current = null
+    }
+    
+    // Stop all media tracks
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop())
+      streamRef.current.getTracks().forEach(track => {
+        track.stop()
+      })
       streamRef.current = null
     }
-  }, [stopRecording])
+    
+    // Reset all states
+    setIsRecording(false)
+    setIsSpeaking(false)
+  }, [isRecording])
 
   // Cleanup when ending
   useEffect(() => {
     if (isEnding) {
-      console.log('🛑 isEnding is true, cleaning up VAD and recording')
+      console.log('🛑 Cleaning up VAD and recording')
       cleanup()
     }
   }, [isEnding, cleanup])
+
+  // Immediate VAD cleanup when ending
+  useEffect(() => {
+    if (isEnding) {
+      isCleanedUpRef.current = true
+      
+      if (vadIntervalRef.current) {
+        clearInterval(vadIntervalRef.current)
+        vadIntervalRef.current = null
+      }
+      
+      // Additional cleanup attempts
+      setTimeout(() => {
+        if (vadIntervalRef.current) {
+          clearInterval(vadIntervalRef.current)
+          vadIntervalRef.current = null
+        }
+      }, 50)
+      
+      setTimeout(() => {
+        if (vadIntervalRef.current) {
+          clearInterval(vadIntervalRef.current)
+          vadIntervalRef.current = null
+        }
+      }, 200)
+    }
+  }, [isEnding])
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false
+      isCleanedUpRef.current = true
+      
+      // Force cleanup everything multiple times
+      if (vadIntervalRef.current) {
+        clearInterval(vadIntervalRef.current)
+        vadIntervalRef.current = null
+      }
+      
+      // Additional cleanup attempts
+      setTimeout(() => {
+        if (vadIntervalRef.current) {
+          clearInterval(vadIntervalRef.current)
+          vadIntervalRef.current = null
+        }
+      }, 0)
+      
+      if (audioContextRef.current) {
+        audioContextRef.current.close()
+        audioContextRef.current = null
+      }
+      
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop())
+        streamRef.current = null
+      }
+      
+      if (mediaRecorderRef.current) {
+        mediaRecorderRef.current = null
+      }
+    }
+  }, [])
 
   return {
     isRecording,

@@ -6,6 +6,7 @@ export interface Message {
   sender: 'user' | 'ai'
   timestamp: Date
   isAudio?: boolean
+  messageGroupId?: string // Para agrupar chunks del mismo mensaje
 }
 
 export function useConversation() {
@@ -32,12 +33,14 @@ export function useConversation() {
     })
   }, [])
 
+
   const clearMessages = useCallback(() => {
     setMessages([])
   }, [])
 
   return {
     messages,
+    setMessages,
     isWaitingForResponse,
     setIsWaitingForResponse,
     addMessage,

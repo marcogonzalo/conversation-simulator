@@ -307,7 +307,7 @@ class OpenAIVoiceService:
                 # Handle user speech transcription
                 transcript = event.get("transcript", "")
                 if transcript and self._on_transcript:
-                    await self._on_transcript(f"Usuario: {transcript}")
+                    await self._on_transcript(f"User: {transcript}")
                 
             elif event_type == "response.audio_transcript.delta":
                 # Handle AI response transcript chunks

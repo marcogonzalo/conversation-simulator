@@ -45,7 +45,7 @@ export function ConversationInterface({
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null)
   const [isEnding, setIsEnding] = useState(false)
   const [isReadyToSpeak, setIsReadyToSpeak] = useState(false)
-  
+    
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const callDurationRef = useRef<NodeJS.Timeout | null>(null)
@@ -87,6 +87,8 @@ export function ConversationInterface({
       console.log('✅ Audio message sent successfully!')
       
       setIsWaitingForResponse(true)
+      
+      // Crear mensaje temporal del usuario
       addMessage({ content: '[Audio message]', sender: 'user', isAudio: true })
       
     } catch (error) {
@@ -102,7 +104,92 @@ export function ConversationInterface({
     switch (data.type) {
       case 'transcribed_text':
         console.log('📨 Processing transcribed_text:', data.content)
-        updateLastMessage(data.content)
+        
+        if (data.content && data.content.trim()) {
+          // Check if this is a user transcription (starts with "User: ")
+          if (data.content.startsWith('User: ')) {
+            // This is user transcription - update the last user audio message
+            const userTranscript = data.content.substring(6) // Remove "User: " prefix
+            console.log('📨 Processing user transcription:', userTranscript)
+            
+            setMessages(prev => {
+              // Find the last user audio message
+              let lastUserMessageIndex = -1
+              for (let i = prev.length - 1; i >= 0; i--) {
+                const msg = prev[i]
+                if (msg.sender === 'user' && msg.isAudio === true) {
+                  lastUserMessageIndex = i
+                  break
+                }
+              }
+              
+              if (lastUserMessageIndex !== -1) {
+                // Update the existing user message
+                console.log('📨 Updating user message with transcription:', userTranscript)
+                const updated = [...prev]
+                updated[lastUserMessageIndex] = {
+                  ...updated[lastUserMessageIndex],
+                  content: userTranscript
+                }
+                return updated
+              } else {
+                // Create a new user message if none found
+                console.log('📨 Creating new user message with transcription:', userTranscript)
+                const newMessage: Message = {
+                  id: `user_${Date.now()}`,
+                  content: userTranscript,
+                  sender: 'user',
+                  timestamp: new Date(),
+                  isAudio: true
+                }
+                return [...prev, newMessage]
+              }
+            })
+          } else {
+            // This is AI transcription - handle as before
+            console.log('📨 Processing AI transcription:', data.content)
+            
+            setMessages(prev => {
+              // Buscar el último mensaje de AI de audio (buscar desde atrás)
+              let lastAiMessageIndex = -1
+              for (let i = prev.length - 1; i >= 0; i--) {
+                const msg = prev[i]
+                if (msg.sender === 'ai' && msg.isAudio === true) {
+                  lastAiMessageIndex = i
+                  break
+                }
+              }
+              
+              if (lastAiMessageIndex !== -1 && 
+                  (prev[lastAiMessageIndex].content === '[Audio response]' || 
+                   prev[lastAiMessageIndex].content.includes('[Audio response]') ||
+                   prev[lastAiMessageIndex].timestamp.getTime() > Date.now() - 10000)) { // Últimos 10 segundos
+                
+                // Actualizar el mensaje AI existente
+                console.log('📨 Updating existing AI message with fragment:', data.content)
+                const updated = [...prev]
+                const currentContent = updated[lastAiMessageIndex].content === '[Audio response]' ? '' : updated[lastAiMessageIndex].content
+                const separator = currentContent && !currentContent.endsWith(' ') && currentContent !== '' ? ' ' : ''
+                updated[lastAiMessageIndex] = {
+                  ...updated[lastAiMessageIndex],
+                  content: currentContent + separator + data.content
+                }
+                return updated
+              } else {
+                // Crear un nuevo mensaje AI
+                console.log('📨 Creating new AI message with fragment:', data.content)
+                const newMessage: Message = {
+                  id: `ai_${Date.now()}`,
+                  content: data.content,
+                  sender: 'ai',
+                  timestamp: new Date(),
+                  isAudio: true
+                }
+                return [...prev, newMessage]
+              }
+            })
+          }
+        }
         break
         
       case 'text_response':
@@ -141,16 +228,29 @@ export function ConversationInterface({
               setIsPlaying(false)
               setCurrentAudio(null)
               URL.revokeObjectURL(audio.src)
-              startRecording()
+              // Add a small delay before starting recording to prevent rapid cycles
+              setTimeout(() => {
+                if (!isEnding) {
+                  startRecording()
+                }
+              }, 500)
             }
             
             setIsPlaying(true)
           } catch (error) {
             console.error('Error creating audio element:', error)
-            setTimeout(() => startRecording(), 1000)
+            setTimeout(() => {
+              if (!isEnding) {
+                startRecording()
+              }
+            }, 1000)
           }
         } else {
-          setTimeout(() => startRecording(), 1000)
+          setTimeout(() => {
+            if (!isEnding) {
+              startRecording()
+            }
+          }, 1000)
         }
         break
         
@@ -171,7 +271,15 @@ export function ConversationInterface({
   }
 
   // Custom Hooks
-  const { messages, isWaitingForResponse, setIsWaitingForResponse, addMessage, updateLastMessage } = useConversation()
+  const { 
+    messages, 
+    setMessages,
+    isWaitingForResponse, 
+    setIsWaitingForResponse, 
+    addMessage, 
+    updateLastMessage,
+    clearMessages
+  } = useConversation()
   
   const { isConnected, isLoading, realConversationId, connect, sendMessage, disconnect } = useWebSocket({
     onMessage: handleWebSocketMessage,
