@@ -42,6 +42,15 @@ class APIConfig:
         self.voice_detection_prefix_padding_ms = int(os.getenv("VOICE_DETECTION_PREFIX_PADDING_MS", "300"))
         self.voice_detection_silence_duration_ms = int(os.getenv("VOICE_DETECTION_SILENCE_DURATION_MS", "500"))
         
+        # Audio filtering settings (configurable values)
+        # These values are related as follows:
+        # - audio_min_duration_ms is the minimum audio duration required by OpenAI (100ms).
+        # - audio_min_bytes_pcm is the minimum number of bytes for 100ms of PCM16 audio at 24kHz (24,000 samples/sec * 2 bytes/sample * 0.1 sec = 4,800 bytes).
+        # - audio_min_bytes_webm is the estimated minimum number of bytes for 100ms of WebM/Opus audio at 32kbps (32,000 bits/sec * 0.1 sec / 8 bits/byte = 400 bytes).
+        self.audio_min_duration_ms = 100
+        self.audio_min_bytes_pcm = 4800
+        self.audio_min_bytes_webm = 400
+        
         # Conversation settings
         self.max_conversation_duration = int(os.getenv("MAX_CONVERSATION_DURATION", "1200"))  # 20 minutes
         self.max_message_length = int(os.getenv("MAX_MESSAGE_LENGTH", "10000"))
@@ -94,9 +103,12 @@ class APIConfig:
     def get_audio_config(self) -> Dict[str, Any]:
         """Get audio configuration."""
         return {
-            "sample_rate": self.audio_sample_rate,
+            "sample_rate": self.audio_playback_sample_rate,
             "channels": self.audio_channels,
-            "format": self.audio_format
+            "format": self.audio_format,
+            "min_duration_ms": self.audio_min_duration_ms,
+            "min_bytes_pcm": self.audio_min_bytes_pcm,
+            "min_bytes_webm": self.audio_min_bytes_webm
         }
     
     def get_conversation_config(self) -> Dict[str, Any]:

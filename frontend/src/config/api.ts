@@ -17,6 +17,15 @@ export const apiConfig = {
   // WebSocket endpoints
   wsBaseUrl: WS_BASE_URL,
   conversationWs: (conversationId: string) => `${WS_BASE_URL}/api/v1/ws/conversation/${conversationId}`,
+  
+  // Audio configuration
+  audio: {
+    // Minimum audio duration (configurable values)
+    // These values prevent "buffer too small" errors from OpenAI API
+    minDurationMs: 100,  // OpenAI minimum requirement (100ms)
+    // Minimum bytes for WebM/Opus audio (~100ms at 32kbps)
+    minBytesWebm: 400,   // Conservative estimate for WebM/Opus
+  }
 }
 
 export default apiConfig

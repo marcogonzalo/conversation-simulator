@@ -21,7 +21,6 @@ export class AudioService {
     const uint8Array = new Uint8Array(arrayBuffer)
     const base64 = this.uint8ArrayToBase64(uint8Array)
     
-    console.log('📤 Base64 length:', base64.length, 'characters')
     return base64
   }
 

@@ -68,23 +68,29 @@ export function ConversationInterface({
     cleanup()
   }
 
+  // Ref para evitar envíos duplicados
+  const lastAudioSentRef = useRef<string | null>(null)
+  
   const handleAudioReady = async (audioBlob: Blob) => {
     if (isEnding) return
     
     try {
-      console.log('🎤 handleAudioReady called with blob size:', audioBlob.size)
       const base64 = await AudioService.convertAudioToBase64(audioBlob)
-      console.log('📤 Converting audio to base64...')
-      console.log('📤 Base64 length:', base64.length, 'characters')
+      
+      // Crear un hash simple del audio para detectar duplicados
+      const audioHash = base64.substring(0, 50) + base64.length
+      
+      // Verificar si ya se envió este audio
+      if (lastAudioSentRef.current === audioHash) {
+        console.log('🚫 Duplicate audio detected, not sending')
+        return
+      }
+      
+      lastAudioSentRef.current = audioHash
       
       const message = AudioService.createAudioMessage(base64)
-      console.log('📤 Created WebSocket message:', message.type)
-      
-      console.log('📤 Sending WebSocket message...')
-      console.log('📤 WebSocket connection state:', isConnected ? 'CONNECTED' : 'DISCONNECTED')
-      console.log('📤 Conversation ID:', realConversationId)
       sendMessage(message)
-      console.log('✅ Audio message sent successfully!')
+      console.log('✅ Audio message sent')
       
       setIsWaitingForResponse(true)
       
@@ -98,8 +104,6 @@ export function ConversationInterface({
 
   const handleWebSocketMessage = (data: any) => {
     console.log('📨 WebSocket message:', data.type)
-    console.log('📨 WebSocket message data:', data)
-    console.log('📨 Current isWaitingForResponse:', isWaitingForResponse)
     
     switch (data.type) {
       case 'transcribed_text':
@@ -146,9 +150,7 @@ export function ConversationInterface({
               }
             })
           } else {
-            // This is AI transcription - handle as before
-            console.log('📨 Processing AI transcription:', data.content)
-            
+            // This is AI transcription - handle as before            
             setMessages(prev => {
               // Buscar el último mensaje de AI de audio (buscar desde atrás)
               let lastAiMessageIndex = -1
@@ -160,32 +162,38 @@ export function ConversationInterface({
                 }
               }
               
-              if (lastAiMessageIndex !== -1 && 
-                  (prev[lastAiMessageIndex].content === '[Audio response]' || 
-                   prev[lastAiMessageIndex].content.includes('[Audio response]') ||
-                   prev[lastAiMessageIndex].timestamp.getTime() > Date.now() - 10000)) { // Últimos 10 segundos
-                
+              // Solo actualizar si el mensaje es muy reciente (últimos 10 segundos)
+              // Esto evita concatenar fragmentos de respuestas anteriores
+              const isRecentMessage = lastAiMessageIndex !== -1 && 
+                prev[lastAiMessageIndex].timestamp.getTime() > Date.now() - 10000
+              
+              if (isRecentMessage) {
                 // Actualizar el mensaje AI existente
-                console.log('📨 Updating existing AI message with fragment:', data.content)
                 const updated = [...prev]
                 const currentContent = updated[lastAiMessageIndex].content === '[Audio response]' ? '' : updated[lastAiMessageIndex].content
-                const separator = currentContent && !currentContent.endsWith(' ') && currentContent !== '' ? ' ' : ''
-                updated[lastAiMessageIndex] = {
-                  ...updated[lastAiMessageIndex],
-                  content: currentContent + separator + data.content
+                
+                // Solo agregar si el contenido no es un duplicado exacto
+                if (currentContent !== data.content && !currentContent.includes(data.content)) {
+                  const separator = currentContent && !currentContent.endsWith(' ') && currentContent !== '' ? ' ' : ''
+                  updated[lastAiMessageIndex] = {
+                    ...updated[lastAiMessageIndex],
+                    content: currentContent + separator + data.content
+                  }
                 }
                 return updated
               } else {
-                // Crear un nuevo mensaje AI
-                console.log('📨 Creating new AI message with fragment:', data.content)
-                const newMessage: Message = {
-                  id: `ai_${Date.now()}`,
-                  content: data.content,
-                  sender: 'ai',
-                  timestamp: new Date(),
-                  isAudio: true
+                // Crear un nuevo mensaje AI solo si el contenido no está vacío
+                if (data.content.trim()) {
+                  const newMessage: Message = {
+                    id: `ai_${Date.now()}`,
+                    content: data.content,
+                    sender: 'ai',
+                    timestamp: new Date(),
+                    isAudio: true
+                  }
+                  return [...prev, newMessage]
                 }
-                return [...prev, newMessage]
+                return prev
               }
             })
           }
@@ -198,19 +206,21 @@ export function ConversationInterface({
         break
         
       case 'audio_response':
-        console.log('📨 Processing audio_response:', data.audio_data ? `audio_data length: ${data.audio_data.length}` : 'no audio_data')
-        console.log('📨 Full audio_response data:', data)
-        
-        // Clear waiting state
-        console.log('📨 Setting isWaitingForResponse to false')
+        console.log('📨 Processing audio_response')
         setIsWaitingForResponse(false)
+        
+        // No need to add a temporary message - the transcribed text already created the message
+        // The audio response will be played without showing a placeholder
       
         if (data.audio_data) {
-          console.log('📨 Creating audio element from base64 data...')
-          console.log('📨 Audio data length:', data.audio_data.length)
-          console.log('📨 Audio data preview:', data.audio_data.substring(0, 50) + '...')
-          
           try {
+            // Stop any currently playing audio to prevent overlap
+            if (currentAudio) {
+              currentAudio.pause()
+              currentAudio.currentTime = 0
+              URL.revokeObjectURL(currentAudio.src)
+            }
+            
             const audio = AudioService.createAudioElement(data.audio_data)
             setCurrentAudio(audio)
             
@@ -228,12 +238,12 @@ export function ConversationInterface({
               setIsPlaying(false)
               setCurrentAudio(null)
               URL.revokeObjectURL(audio.src)
-              // Add a small delay before starting recording to prevent rapid cycles
+              // Wait before starting recording to prevent audio feedback
               setTimeout(() => {
                 if (!isEnding) {
                   startRecording()
                 }
-              }, 500)
+              }, 2000)
             }
             
             setIsPlaying(true)
@@ -243,14 +253,14 @@ export function ConversationInterface({
               if (!isEnding) {
                 startRecording()
               }
-            }, 1000)
+            }, 2000)
           }
         } else {
           setTimeout(() => {
             if (!isEnding) {
               startRecording()
             }
-          }, 1000)
+          }, 2000)
         }
         break
         
@@ -302,7 +312,8 @@ export function ConversationInterface({
   const { isRecording, isSpeaking, startRecording, stopRecording, cleanup } = useAudioRecording({
     onAudioReady: handleAudioReady,
     isWaitingForResponse,
-    isEnding
+    isEnding,
+    isPlaying
   })
 
   // Scroll to bottom when new messages arrive
@@ -347,6 +358,10 @@ export function ConversationInterface({
     setCallStatus('connecting')
     setIsEnding(false)
     setIsReadyToSpeak(false)
+    
+    // Limpiar hash de audio anterior para nueva conversación
+    lastAudioSentRef.current = null
+    
     await connect(actualPersonaId)
   }
 

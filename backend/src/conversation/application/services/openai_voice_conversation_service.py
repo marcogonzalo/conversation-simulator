@@ -112,7 +112,6 @@ class OpenAIVoiceConversationService:
             
             # Send the complete audio response
             await send_audio_response(conversation_id, audio_base64)
-            logger.info(f"[{conversation_id}] - Audio response sent successfully")
             
             # Clear the accumulated chunks
             self.audio_chunks[conversation_id] = []

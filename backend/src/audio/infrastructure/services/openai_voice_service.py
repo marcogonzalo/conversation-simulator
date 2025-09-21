@@ -162,7 +162,6 @@ class OpenAIVoiceService:
             
             # Add to audio buffer
             self._audio_buffer.append(pcm_audio)
-            logger.info(f"Added audio chunk to buffer. Buffer size: {len(self._audio_buffer)} chunks")
             
             # Cancel existing timer if it exists
             if self._audio_timer and not self._audio_timer.done():
@@ -198,10 +197,17 @@ class OpenAIVoiceService:
             
             self._is_processing_audio = True
             
-            logger.info(f"Processing {len(self._audio_buffer)} accumulated audio chunks")
+            # Processing accumulated audio chunks
             
             # Concatenate all audio chunks
             combined_audio = b''.join(self._audio_buffer)
+            
+            # Validate audio duration using configured minimum
+            min_audio_bytes = self.api_config.audio_min_bytes_pcm
+            if len(combined_audio) < min_audio_bytes:
+                logger.warning(f"Audio too short: {len(combined_audio)} bytes (minimum: {min_audio_bytes} bytes for {self.api_config.audio_min_duration_ms}ms)")
+                self._is_processing_audio = False
+                return
             
             # Clear the buffer
             self._audio_buffer.clear()
@@ -223,17 +229,7 @@ class OpenAIVoiceService:
             }
             await self.websocket.send(json.dumps(commit_event))
             
-            # Create a response
-            response_event = {
-                "type": "response.create",
-                "response": {
-                    "modalities": ["text", "audio"],
-                    "instructions": "Please respond to the user's audio input."
-                }
-            }
-            await self.websocket.send(json.dumps(response_event))
-            
-            logger.info("Sent combined audio request to OpenAI")
+            logger.info("Committed audio buffer to system (response will be generated automatically)")
             
         except asyncio.CancelledError:
             logger.info("Audio processing timer cancelled (more audio arrived)")

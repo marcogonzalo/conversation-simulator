@@ -1,12 +1,14 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
+import { apiConfig } from '@/config/api'
 
 interface UseAudioRecordingProps {
   onAudioReady: (audioBlob: Blob) => void
   isWaitingForResponse: boolean
   isEnding: boolean
+  isPlaying?: boolean
 }
 
-export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding }: UseAudioRecordingProps) {
+export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding, isPlaying = false }: UseAudioRecordingProps) {
   const [isRecording, setIsRecording] = useState(false)
   const [isSpeaking, setIsSpeaking] = useState(false)
   
@@ -90,16 +92,15 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
         analyserRef.current.getByteFrequencyData(dataArray)
         const average = dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length
         
-        // Log every second for debugging
+        // Log VAD status less frequently for debugging
         vadLogCounter++
-        if (vadLogCounter % 10 === 0) {
+        if (vadLogCounter % 50 === 0) { // Every 5 seconds instead of every second
           console.log(`🎤 VAD - Volume: ${average.toFixed(2)}, Speaking: ${isSpeaking}, Recording: ${isRecording}`)
         }
         
         if (average > VAD_THRESHOLD) {
           // Voice detected
           if (!isSpeaking) {
-            console.log(`🎤 Voice detected (volume: ${average.toFixed(2)})`)
             setIsSpeaking(true)
           }
           lastVoiceTime = now
@@ -108,7 +109,6 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
         } else {
           // Silence detected
           if (isSpeaking) {
-            console.log(`🎤 Silence detected (volume: ${average.toFixed(2)})`)
             setIsSpeaking(false)
             
             // Start silence timer if not already started
@@ -151,6 +151,13 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
       
       // Check if component is cleaned up or unmounted
       if (isCleanedUpRef.current || !isMountedRef.current) {
+        console.log('🎤 Cannot start recording - component cleaned up or unmounted')
+        return
+      }
+      
+      // Don't start recording if audio is currently playing to prevent feedback
+      if (isPlaying) {
+        console.log('🎤 Cannot start recording - audio is currently playing (preventing feedback)')
         return
       }
       
@@ -173,8 +180,14 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
       mediaRecorder.onstop = async () => {
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
         
-        if (audioBlob.size > 1000) {
+        // Use configured minimum audio duration
+        const minSize = apiConfig.audio.minBytesWebm
+        const minDurationMs = apiConfig.audio.minDurationMs
+        
+        if (audioBlob.size > minSize) {
           onAudioReady(audioBlob)
+        } else {
+          console.log(`🎤 Audio too short: ${audioBlob.size} bytes (minimum: ${minSize} bytes)`)
         }
         
         // Cleanup stream
@@ -190,7 +203,7 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
     } catch (error) {
       console.error('❌ Error starting recording:', error)
     }
-  }, [setupVoiceActivityDetection, onAudioReady])
+  }, [setupVoiceActivityDetection, onAudioReady, isPlaying])
 
   const cleanup = useCallback(() => {
     // Mark as cleaned up immediately
