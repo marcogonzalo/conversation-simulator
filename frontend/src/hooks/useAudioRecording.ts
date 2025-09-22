@@ -184,10 +184,14 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
         const minSize = apiConfig.audio.minBytesWebm
         const minDurationMs = apiConfig.audio.minDurationMs
         
-        if (audioBlob.size > minSize) {
+        // Check if we have any audio data at all
+        if (audioChunksRef.current.length === 0) {
+          console.log('🎤 No audio chunks recorded - skipping send')
+        } else if (audioBlob.size > minSize) {
+          console.log(`🎤 Audio ready: ${audioBlob.size} bytes (minimum: ${minSize} bytes)`)
           onAudioReady(audioBlob)
         } else {
-          console.log(`🎤 Audio too short: ${audioBlob.size} bytes (minimum: ${minSize} bytes)`)
+          console.log(`🎤 Audio too short: ${audioBlob.size} bytes (minimum: ${minSize} bytes) - skipping send`)
         }
         
         // Cleanup stream
@@ -319,11 +323,18 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
     }
   }, [])
 
+  const resetCleanupState = useCallback(() => {
+    console.log('🔄 Resetting cleanup state for new conversation')
+    isCleanedUpRef.current = false
+    isMountedRef.current = true
+  }, [])
+
   return {
     isRecording,
     isSpeaking,
     startRecording,
     stopRecording,
-    cleanup
+    cleanup,
+    resetCleanupState
   }
 }

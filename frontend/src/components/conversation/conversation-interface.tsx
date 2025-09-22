@@ -65,6 +65,7 @@ export function ConversationInterface({
     setIsPlaying(false)
     setCurrentAudio(null)
     setIsReadyToSpeak(false)
+    setIsWaitingForResponse(false) // Reset waiting state on disconnect
     cleanup()
   }
 
@@ -72,10 +73,25 @@ export function ConversationInterface({
   const lastAudioSentRef = useRef<string | null>(null)
   
   const handleAudioReady = async (audioBlob: Blob) => {
-    if (isEnding) return
+    if (isEnding) {
+      console.log('🚫 Conversation ending, not sending audio')
+      return
+    }
     
     try {
+      // Check if audio blob is valid and has content
+      if (!audioBlob || audioBlob.size === 0) {
+        console.log('🚫 Empty audio blob, not sending')
+        return
+      }
+      
       const base64 = await AudioService.convertAudioToBase64(audioBlob)
+      
+      // Check if base64 conversion was successful
+      if (!base64 || base64.length === 0) {
+        console.log('🚫 Empty base64 audio, not sending')
+        return
+      }
       
       // Crear un hash simple del audio para detectar duplicados
       const audioHash = base64.substring(0, 50) + base64.length
@@ -309,7 +325,7 @@ export function ConversationInterface({
   // Only show permission component if not connected and permission not granted
   const shouldShowPermissionComponent = !isConnected && permissionStatus !== 'granted'
 
-  const { isRecording, isSpeaking, startRecording, stopRecording, cleanup } = useAudioRecording({
+  const { isRecording, isSpeaking, startRecording, stopRecording, cleanup, resetCleanupState } = useAudioRecording({
     onAudioReady: handleAudioReady,
     isWaitingForResponse,
     isEnding,
@@ -358,6 +374,10 @@ export function ConversationInterface({
     setCallStatus('connecting')
     setIsEnding(false)
     setIsReadyToSpeak(false)
+    setIsWaitingForResponse(false) // Reset waiting state on new call
+    
+    // Reset cleanup state to allow recording to start
+    resetCleanupState()
     
     // Limpiar hash de audio anterior para nueva conversación
     lastAudioSentRef.current = null
@@ -379,6 +399,9 @@ export function ConversationInterface({
     console.log('📞 Cleaning up audio resources...')
     cleanup()
     
+    // Clear any pending audio hash to prevent sending stale audio
+    lastAudioSentRef.current = null
+    
     setTimeout(() => {
       console.log('📞 Sending end_voice_conversation message')
       sendMessage({ type: 'end_voice_conversation' })
@@ -386,7 +409,7 @@ export function ConversationInterface({
         console.log('📞 Disconnecting WebSocket')
         disconnect()
       }, 100)
-    }, 1000) // Reduced timeout for faster cleanup
+    }, 500) // Reduced timeout for faster cleanup
   }
 
   const stopAudio = () => {

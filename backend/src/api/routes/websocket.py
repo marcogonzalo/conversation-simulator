@@ -81,6 +81,11 @@ async def handle_messages(websocket: WebSocket, conversation_id: str, conversati
     
     while True:
         try:
+            # Check if WebSocket is still connected before trying to receive
+            if websocket.client_state.name != "CONNECTED":
+                logger.info(f"WebSocket not connected for conversation {conversation_id}, stopping message handler")
+                break
+                
             message_count += 1
             logger.info(f"[{message_count}] Waiting for message from conversation {conversation_id}")
             
@@ -119,23 +124,45 @@ async def handle_messages(websocket: WebSocket, conversation_id: str, conversati
         except WebSocketDisconnect:
             logger.info(f"WebSocket disconnected for conversation {conversation_id}")
             break
+        except RuntimeError as e:
+            if "WebSocket is not connected" in str(e):
+                logger.info(f"WebSocket connection lost for conversation {conversation_id}: {e}")
+                break
+            else:
+                logger.error(f"Runtime error handling message for conversation {conversation_id}: {e}", exc_info=True)
+                break
         except Exception as e:
             logger.error(f"Error handling message for conversation {conversation_id}: {e}", exc_info=True)
+            # Don't try to send error if connection is broken
             try:
-                await send_error(conversation_id, f"Message processing error: {str(e)}")
+                if websocket.client_state.name == "CONNECTED":
+                    await send_error(conversation_id, f"Message processing error: {str(e)}")
             except:
-                pass
+                logger.info(f"Cannot send error message, connection appears to be broken for conversation {conversation_id}")
+                break
 
 async def send_pings(websocket: WebSocket, conversation_id: str):
     """Send pings to the client to keep the connection alive."""
     while True:
         await asyncio.sleep(15)  # Send a ping every 15 seconds
         try:
+            # Check if WebSocket is still connected before sending ping
+            if websocket.client_state.name != "CONNECTED":
+                logger.info(f"WebSocket not connected, stopping pings for {conversation_id}")
+                break
+                
             await websocket.send_text(json.dumps({"type": "ping", "conversation_id": conversation_id}))
             logger.info(f"Ping sent for conversation {conversation_id}")
         except WebSocketDisconnect:
             logger.info(f"Client disconnected, stopping pings for {conversation_id}")
             break
+        except RuntimeError as e:
+            if "WebSocket is not connected" in str(e):
+                logger.info(f"WebSocket connection lost, stopping pings for {conversation_id}: {e}")
+                break
+            else:
+                logger.error(f"Runtime error sending ping for {conversation_id}: {e}")
+                break
         except Exception as e:
             logger.error(f"Error sending ping for {conversation_id}: {e}")
             break
