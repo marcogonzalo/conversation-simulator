@@ -55,11 +55,9 @@ export function useWebSocket({ onMessage, onConnect, onDisconnect }: UseWebSocke
       }
       
       ws.onmessage = (event) => {
-        console.log('📨 Raw WebSocket message received:', event.data)
         try {
           const data = JSON.parse(event.data)
           console.log('📨 Parsed WebSocket message:', data)
-          console.log('📨 Message type:', data.type)
           onMessage(data)
         } catch (error) {
           console.error('❌ Error parsing WebSocket message:', error)

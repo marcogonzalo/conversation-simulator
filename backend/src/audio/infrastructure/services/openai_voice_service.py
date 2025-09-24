@@ -86,10 +86,10 @@ class OpenAIVoiceService:
             }
             
             # Debug: Log headers and API key info
-            logger.info(f"OpenAI API Key length: {len(self.api_config.openai_api_key) if self.api_config.openai_api_key else 0}")
-            logger.info(f"OpenAI API Key prefix: {self.api_config.openai_api_key[:10] if self.api_config.openai_api_key else 'None'}...")
-            logger.info(f"WebSocket URL: {url}")
-            logger.info(f"Headers: {headers}")
+            # logger.info(f"OpenAI API Key length: {len(self.api_config.openai_api_key) if self.api_config.openai_api_key else 0}")
+            # logger.info(f"OpenAI API Key prefix: {self.api_config.openai_api_key[:10] if self.api_config.openai_api_key else 'None'}...")
+            # logger.info(f"WebSocket URL: {url}")
+            # logger.info(f"Headers: {headers}")
             
             # Connect to OpenAI WebSocket  
             self.websocket = await websockets.connect(
@@ -187,33 +187,43 @@ class OpenAIVoiceService:
                 logger.info("Audio already being processed, skipping")
                 return
             
-            if not self._audio_buffer:
-                logger.info("No audio chunks to process")
-                return
-            
+            # Check connection before processing
             if not self.is_connected or not self.websocket:
                 logger.warning("Not connected to OpenAI voice service during audio processing")
                 return
             
+            # Double-check buffer is not empty (race condition protection)
+            if not self._audio_buffer:
+                logger.info("No audio chunks to process")
+                return
+            
             self._is_processing_audio = True
             
-            # Processing accumulated audio chunks
+            # Create a copy of the buffer and clear the original immediately to prevent race conditions
+            audio_chunks_copy = self._audio_buffer.copy()
+            self._audio_buffer.clear()
             
             # Concatenate all audio chunks
-            combined_audio = b''.join(self._audio_buffer)
+            combined_audio = b''.join(audio_chunks_copy)
+            
+            # Final validation: ensure we have meaningful audio data
+            if len(combined_audio) == 0:
+                logger.info("No audio data after concatenation, skipping commit")
+                return
             
             # Validate audio duration using configured minimum
             min_audio_bytes = self.api_config.audio_min_bytes_pcm
             if len(combined_audio) < min_audio_bytes:
-                logger.warning(f"Audio too short: {len(combined_audio)} bytes (minimum: {min_audio_bytes} bytes for {self.api_config.audio_min_duration_ms}ms)")
-                self._is_processing_audio = False
+                logger.warning(f"Audio too short: {len(combined_audio)} bytes (minimum: {min_audio_bytes} bytes for {self.api_config.audio_min_duration_ms}ms) - skipping commit")
                 return
-            
-            # Clear the buffer
-            self._audio_buffer.clear()
             
             # Encode combined audio as base64
             audio_base64 = base64.b64encode(combined_audio).decode('utf-8')
+            
+            # Validate base64 encoding was successful
+            if not audio_base64 or len(audio_base64) == 0:
+                logger.error("Failed to encode audio as base64")
+                return
             
             # Send combined audio to OpenAI
             event = {
@@ -229,7 +239,14 @@ class OpenAIVoiceService:
             }
             await self.websocket.send(json.dumps(commit_event))
             
-            logger.info("Committed audio buffer to system (response will be generated automatically)")
+            logger.info(f"Successfully committed audio buffer: {len(combined_audio)} bytes ({len(audio_base64)} base64 chars)")
+            
+            # Explicitly request response generation since we disabled automatic turn detection
+            # Without turn_detection, OpenAI doesn't automatically generate responses
+            response_create = {
+                "type": "response.create"
+            }
+            await self.websocket.send(json.dumps(response_create))
             
         except asyncio.CancelledError:
             logger.info("Audio processing timer cancelled (more audio arrived)")
@@ -257,12 +274,7 @@ class OpenAIVoiceService:
                     "input_audio_transcription": {
                         "model": "whisper-1"
                     },
-                    "turn_detection": {
-                        "type": "server_vad",
-                        "threshold": 0.5,
-                        "prefix_padding_ms": 300,
-                        "silence_duration_ms": 200
-                    },
+                    "turn_detection": None,
                     "tools": [],
                     "tool_choice": "auto",
                     "temperature": self.api_config.openai_voice_temperature
@@ -270,7 +282,7 @@ class OpenAIVoiceService:
             }
             
             await self.websocket.send(json.dumps(session_update))
-            logger.info(f"Session configured with voice: {voice}")
+            logger.info(f"🔌 Session configured with voice: {voice}")
             
         except Exception as e:
             logger.error(f"Error configuring session: {e}")
@@ -333,7 +345,7 @@ class OpenAIVoiceService:
                 # Handle errors
                 error_info = event.get("error", {})
                 error_msg = error_info.get("message", "Unknown error")
-                logger.error(f"OpenAI error: {error_msg}")
+                logger.error(f"❌ OpenAI error: {error_info.get('type')} {error_info.get('code')} - {error_msg}")
                 if self._on_error:
                     await self._on_error(error_msg)
                 

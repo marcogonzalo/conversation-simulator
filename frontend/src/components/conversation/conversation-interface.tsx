@@ -259,7 +259,7 @@ export function ConversationInterface({
                 if (!isEnding) {
                   startRecording()
                 }
-              }, 2000)
+              }, 500)
             }
             
             setIsPlaying(true)
@@ -269,14 +269,14 @@ export function ConversationInterface({
               if (!isEnding) {
                 startRecording()
               }
-            }, 2000)
+            }, 1000)
           }
         } else {
           setTimeout(() => {
             if (!isEnding) {
               startRecording()
             }
-          }, 2000)
+          }, 500)
         }
         break
         
@@ -284,7 +284,7 @@ export function ConversationInterface({
         console.log('Persona info:', data.name, data.accent)
         // Mark as ready to speak when persona info is received
         setIsReadyToSpeak(true)
-        setTimeout(() => startRecording(), 500)
+        startRecording()
         break
         
       case 'ping':
@@ -416,9 +416,9 @@ export function ConversationInterface({
     if (currentAudio) {
       currentAudio.pause()
       currentAudio.currentTime = 0
-      setIsPlaying(false)
-      setCurrentAudio(null)
     }
+    setIsPlaying(false)
+    setCurrentAudio(null)
   }
 
   return (

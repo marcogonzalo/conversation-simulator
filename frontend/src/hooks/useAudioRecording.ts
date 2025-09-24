@@ -59,7 +59,11 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
       const source = audioContextRef.current.createMediaStreamSource(stream)
       analyserRef.current = audioContextRef.current.createAnalyser()
       
+      // fftSize determina la resolución de frecuencia del análisis FFT. 
+      // Un valor de 256 significa que el espectro de audio se divide en 128 bandas de frecuencia (fftSize/2), lo que da un balance entre sensibilidad y rendimiento para la detección de voz.
       analyserRef.current.fftSize = 256
+      // smoothingTimeConstant controla el suavizado de los datos de frecuencia a lo largo del tiempo. 
+      // Un valor de 0.8 hace que los cambios de volumen se promedien, ayudando a filtrar picos breves y proporcionando una detección de voz más estable.
       analyserRef.current.smoothingTimeConstant = 0.8
       source.connect(analyserRef.current)
       
@@ -67,7 +71,7 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
       dataArrayRef.current = new Uint8Array(bufferLength)
       
       const VAD_THRESHOLD = 15 // Lowered threshold for better sensitivity
-      const SILENCE_DURATION_THRESHOLD = 2000 // 2 seconds of silence before stopping
+      const SILENCE_DURATION_THRESHOLD = 2000 // miliseconds of silence before stopping
       let vadLogCounter = 0
       let silenceStartTime: number | null = null
       let lastVoiceTime = 0
