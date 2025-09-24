@@ -188,9 +188,9 @@ export function ConversationInterface({
                 const updated = [...prev]
                 const currentContent = updated[lastAiMessageIndex].content === '[Audio response]' ? '' : updated[lastAiMessageIndex].content
                 
-                // Solo agregar si el contenido no es un duplicado exacto
-                if (currentContent !== data.content && !currentContent.includes(data.content)) {
-                  const separator = currentContent && !currentContent.endsWith(' ') && currentContent !== '' ? ' ' : ''
+                if (data.content) {
+                  // Add a space if the content is a number
+                  const separator = !isNaN(Number(data.content)) ? ' ' : '';
                   updated[lastAiMessageIndex] = {
                     ...updated[lastAiMessageIndex],
                     content: currentContent + separator + data.content
