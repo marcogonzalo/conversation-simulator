@@ -23,8 +23,8 @@ export const apiConfig = {
     // Minimum audio duration (configurable values)
     // These values prevent "buffer too small" errors from OpenAI API
     minDurationMs: 100,  // OpenAI minimum requirement (100ms)
-    // Minimum bytes for WebM/Opus audio (~100ms at 32kbps)
-    minBytesWebm: 400,   // Conservative estimate for WebM/Opus
+    // Minimum bytes for WebM/Opus audio (~50ms at 32kbps)
+    minBytesWebm: 200,   // Reduced for better fluency
   }
 }
 

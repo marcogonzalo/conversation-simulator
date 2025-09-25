@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Avatar } from './avatar'
 import { CallControls } from './call-controls'
 import { CallStatus } from './call-status'
@@ -45,6 +46,7 @@ export function ConversationInterface({
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null)
   const [isEnding, setIsEnding] = useState(false)
   const [isReadyToSpeak, setIsReadyToSpeak] = useState(false)
+  const [canEndCall, setCanEndCall] = useState(true)
     
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -78,6 +80,8 @@ export function ConversationInterface({
       return
     }
     
+    console.log('🎤 Audio ready, blob size:', audioBlob.size, 'isWaitingForResponse:', isWaitingForResponse)
+    
     try {
       // Check if audio blob is valid and has content
       if (!audioBlob || audioBlob.size === 0) {
@@ -109,6 +113,7 @@ export function ConversationInterface({
       console.log('✅ Audio message sent')
       
       setIsWaitingForResponse(true)
+      console.log('⏳ Set isWaitingForResponse to true, waiting for backend response...')
       
       // Crear mensaje temporal del usuario
       addMessage({ content: '[Audio message]', sender: 'user', isAudio: true })
@@ -224,6 +229,7 @@ export function ConversationInterface({
       case 'audio_response':
         console.log('📨 Processing audio_response')
         setIsWaitingForResponse(false)
+        console.log('✅ Received audio response, processing...')
         
         // No need to add a temporary message - the transcribed text already created the message
         // The audio response will be played without showing a placeholder
@@ -239,32 +245,43 @@ export function ConversationInterface({
             
             const audio = AudioService.createAudioElement(data.audio_data)
             setCurrentAudio(audio)
+            setIsPlaying(true)
             
             audio.oncanplaythrough = () => {
               audio.play().catch(e => {
-                console.error("Audio play failed:", e)
+                console.error("❌ Audio play failed:", e)
+                setIsPlaying(false)
+                setCurrentAudio(null)
               })
             }
             
             audio.onerror = (e) => {
-              console.error('Audio error:', e)
+              console.error('❌ Audio error:', e)
+              setIsPlaying(false)
+              setCurrentAudio(null)
             }
 
             audio.onended = () => {
               setIsPlaying(false)
               setCurrentAudio(null)
               URL.revokeObjectURL(audio.src)
+              
+              // Reset cleanup state to allow recording to restart
+              resetCleanupState()
+              
               // Wait before starting recording to prevent audio feedback
               setTimeout(() => {
                 if (!isEnding) {
                   startRecording()
                 }
-              }, 500)
+              }, 300)
             }
             
             setIsPlaying(true)
           } catch (error) {
             console.error('Error creating audio element:', error)
+            // Reset cleanup state to allow recording to restart
+            resetCleanupState()
             setTimeout(() => {
               if (!isEnding) {
                 startRecording()
@@ -272,6 +289,8 @@ export function ConversationInterface({
             }, 1000)
           }
         } else {
+          // Reset cleanup state to allow recording to restart
+          resetCleanupState()
           setTimeout(() => {
             if (!isEnding) {
               startRecording()
@@ -387,6 +406,7 @@ export function ConversationInterface({
 
   const endCall = () => {
     console.log('📞 End call initiated')
+    console.log('📞 Stack trace:', new Error().stack)
     setIsEnding(true)
     
     // Immediately stop recording and cleanup
@@ -408,8 +428,8 @@ export function ConversationInterface({
       setTimeout(() => {
         console.log('📞 Disconnecting WebSocket')
         disconnect()
-      }, 100)
-    }, 500) // Reduced timeout for faster cleanup
+      }, 200)
+    }, 1000) // Reduced timeout for faster cleanup
   }
 
   const stopAudio = () => {

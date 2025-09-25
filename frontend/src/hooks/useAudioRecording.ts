@@ -21,6 +21,12 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
   const vadIntervalRef = useRef<NodeJS.Timeout | null>(null)
   const isMountedRef = useRef(true)
   const isCleanedUpRef = useRef(false)
+  
+  // VAD state variables that persist across setupVoiceActivityDetection calls
+  const hasDetectedVoiceRef = useRef(false)
+  const silenceStartTimeRef = useRef<number | null>(null)
+  const lastVoiceTimeRef = useRef(0)
+  const isProcessingStopRef = useRef(false)
 
   const stopRecording = useCallback(() => {
     // Prevent multiple calls
@@ -43,8 +49,6 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
       audioContextRef.current.close()
       audioContextRef.current = null
     }
-    
-    setIsSpeaking(false)
   }, [isRecording])
 
 
@@ -70,17 +74,13 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
       const bufferLength = analyserRef.current.frequencyBinCount
       dataArrayRef.current = new Uint8Array(bufferLength)
       
-      const VAD_THRESHOLD = 15 // Lowered threshold for better sensitivity
-      const SILENCE_DURATION_THRESHOLD = 2000 // miliseconds of silence before stopping
+      const VAD_THRESHOLD = 3 // Lowered threshold for better sensitivity
+      const SILENCE_DURATION_THRESHOLD = 1500 // Reduced for better fluency (1.5 seconds)
       let vadLogCounter = 0
-      let silenceStartTime: number | null = null
-      let lastVoiceTime = 0
-      let hasDetectedVoice = false // Track if we've detected any voice at all
-      let isProcessingStop = false // Prevent multiple stop calls
       
       const checkVoiceActivity = () => {
-        // Early return if component is unmounted, cleaned up, not recording, already processing stop, or ending
-        if (!isMountedRef.current || isCleanedUpRef.current || !isRecording || isProcessingStop || isEnding || !analyserRef.current || !dataArrayRef.current) {
+        // Early return if component is unmounted, cleaned up, not recording, already processing stop, ending, or audio is playing
+        if (!isMountedRef.current || isCleanedUpRef.current || !isRecording || isProcessingStopRef.current || isEnding || isPlaying || !analyserRef.current || !dataArrayRef.current) {
           // Stop the interval immediately if conditions are not met
           if (vadIntervalRef.current) {
             clearInterval(vadIntervalRef.current)
@@ -105,30 +105,38 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
         if (average > VAD_THRESHOLD) {
           // Voice detected
           if (!isSpeaking) {
+            console.log(`🎤 Voice detected! Volume: ${average.toFixed(2)}`)
             setIsSpeaking(true)
           }
-          lastVoiceTime = now
-          silenceStartTime = null // Reset silence timer
-          hasDetectedVoice = true // Mark that we've detected voice
+          lastVoiceTimeRef.current = now
+          silenceStartTimeRef.current = null // Reset silence timer
+          hasDetectedVoiceRef.current = true // Mark that we've detected voice
         } else {
           // Silence detected
           if (isSpeaking) {
+            console.log(`🎤 Silence detected! Volume: ${average.toFixed(2)}`)
             setIsSpeaking(false)
             
             // Start silence timer if not already started
-            if (silenceStartTime === null) {
-              silenceStartTime = now
+            if (silenceStartTimeRef.current === null) {
+              silenceStartTimeRef.current = now
             }
           }
           
           // Check if we've had enough silence to stop recording
           // Only if we're not waiting for response and we've detected voice before
-          if (!isWaitingForResponse && silenceStartTime !== null && hasDetectedVoice) {
-            const silenceDuration = now - silenceStartTime
+          if (!isWaitingForResponse && silenceStartTimeRef.current !== null && hasDetectedVoiceRef.current) {
+            console.log(`🎤 Checking silence timer - isWaitingForResponse: ${isWaitingForResponse}, silenceStartTime: ${silenceStartTimeRef.current}, hasDetectedVoice: ${hasDetectedVoiceRef.current}`)
+            const silenceDuration = now - silenceStartTimeRef.current
+            
+            // Log silence duration every second for debugging
+            if (Math.floor(silenceDuration / 1000) !== Math.floor((silenceDuration - 100) / 1000)) {
+              console.log(`🎤 Silence duration: ${silenceDuration}ms (threshold: ${SILENCE_DURATION_THRESHOLD}ms)`)
+            }
             
             // Only stop if we've had silence for the threshold duration
             if (silenceDuration >= SILENCE_DURATION_THRESHOLD) {
-              isProcessingStop = true // Prevent multiple calls
+              isProcessingStopRef.current = true // Prevent multiple calls
               console.log(`🎤 Stopping recording due to ${silenceDuration}ms of silence`)
               stopRecording()
             }
@@ -149,6 +157,7 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
     }
   }, [isRecording, setupVoiceActivityDetection])
 
+
   const startRecording = useCallback(async () => {
     try {
       console.log('🎤 Starting recording...')
@@ -164,6 +173,12 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
         console.log('🎤 Cannot start recording - audio is currently playing (preventing feedback)')
         return
       }
+      
+      // Reset VAD state variables for new recording
+      hasDetectedVoiceRef.current = false
+      silenceStartTimeRef.current = null
+      lastVoiceTimeRef.current = 0
+      isProcessingStopRef.current = false
       
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       streamRef.current = stream
@@ -213,6 +228,7 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
     }
   }, [setupVoiceActivityDetection, onAudioReady, isPlaying])
 
+
   const cleanup = useCallback(() => {
     // Mark as cleaned up immediately
     isCleanedUpRef.current = true
@@ -253,7 +269,6 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
     
     // Reset all states
     setIsRecording(false)
-    setIsSpeaking(false)
   }, [isRecording])
 
   // Cleanup when ending

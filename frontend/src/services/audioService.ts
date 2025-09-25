@@ -39,12 +39,13 @@ export class AudioService {
       
       // Create WebM audio blob
       const audioBlob = new Blob([webmData], { type: 'audio/webm; codecs=opus' })
-      const audioUrl = URL.createObjectURL(audioBlob)
       
+      const audioUrl = URL.createObjectURL(audioBlob)
       const audio = new Audio(audioUrl)
+      
       return audio
     } catch (error) {
-      console.error('Error creating audio element:', error)
+      console.error('❌ Error creating audio element:', error)
       throw error
     }
   }
