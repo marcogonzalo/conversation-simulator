@@ -29,7 +29,7 @@ class OpenAIVoiceService:
     def __init__(self, api_config: APIConfig):
         self.api_config = api_config
         self.client: Optional[AsyncOpenAI] = None
-        self.websocket: Optional[websockets.WebSocketServerProtocol] = None
+        self.websocket: Optional[websockets.WebSocketClientProtocol] = None
         self.session_id: Optional[str] = None
         self.is_connected = False
         self.conversation_id: Optional[str] = None
@@ -132,9 +132,12 @@ class OpenAIVoiceService:
                     pass
             
             # Close WebSocket connection
-            if self.websocket and not self.websocket.closed:
-                await self.websocket.close()
-                logger.info("Disconnected from OpenAI voice service")
+            if self.websocket:
+                try:
+                    await self.websocket.close()
+                    logger.info("Disconnected from OpenAI voice service")
+                except Exception as e:
+                    logger.warning(f"Error closing WebSocket: {e}")
         except Exception as e:
             logger.error(f"Error disconnecting from OpenAI voice service: {e}")
         finally:
@@ -184,7 +187,7 @@ class OpenAIVoiceService:
             
             # Check if we're already processing audio to prevent multiple simultaneous processing
             if self._is_processing_audio:
-                logger.info("Audio already being processed, skipping")
+                logger.warning(f"Audio already being processed (is_processing_audio={self._is_processing_audio}), skipping")
                 return
             
             # Check connection before processing
@@ -197,11 +200,14 @@ class OpenAIVoiceService:
                 logger.info("No audio chunks to process")
                 return
             
-            self._is_processing_audio = True
-            
             # Create a copy of the buffer and clear the original immediately to prevent race conditions
             audio_chunks_copy = self._audio_buffer.copy()
+            buffer_size = len(audio_chunks_copy)
+            total_bytes = sum(len(chunk) for chunk in audio_chunks_copy)
             self._audio_buffer.clear()
+            
+            self._is_processing_audio = True
+            logger.info(f"Starting audio processing: {buffer_size} chunks, {total_bytes} total bytes")
             
             # Concatenate all audio chunks
             combined_audio = b''.join(audio_chunks_copy)
@@ -247,6 +253,7 @@ class OpenAIVoiceService:
                 "type": "response.create"
             }
             await self.websocket.send(json.dumps(response_create))
+            logger.info("Sent response.create request to OpenAI")
             
         except asyncio.CancelledError:
             logger.info("Audio processing timer cancelled (more audio arrived)")
@@ -254,6 +261,7 @@ class OpenAIVoiceService:
             logger.error(f"Error processing accumulated audio: {e}")
         finally:
             self._is_processing_audio = False
+            logger.info("Audio processing completed, reset _is_processing_audio flag")
     
     async def _configure_session(self, persona_config: Dict[str, Any]):
         """Configure the OpenAI session with persona settings."""
