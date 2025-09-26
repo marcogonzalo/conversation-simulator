@@ -56,10 +56,7 @@ instance/
 *.db
 
 # Cursor
-.cursor/
-!.cursor/mcp.json
-!.cursor/mcp-config.json
-!.cursor/rules
+
 .cursor-tmp/
 .cursor-history/
 .cursor-config.json

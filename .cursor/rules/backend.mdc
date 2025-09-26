@@ -1,0 +1,34 @@
+---
+description: Reglas específicas para el backend Python/FastAPI
+globs: ["backend/**/*.py"]
+alwaysApply: true
+---
+
+# Backend - Python/FastAPI
+
+## Arquitectura
+
+- Usa FastAPI con arquitectura DDD
+- Implementa WebSockets para comunicación en tiempo real
+- Integra con OpenAI para generación de personalidades y conversaciones
+- Usa Supabase para persistencia de datos
+
+## Código y Estilo
+
+- Siempre usa rutas absolutas cuando sea posible
+- Al imprimir variables en consola, incluye el nombre como string: `print('variable_name', variable_name)`
+- No uses estilo preventivamente compasivo hasta confirmar si hay error real
+- Usa type hints completos en todas las funciones y métodos
+- Usa Pydantic para validación de entrada
+
+## Logging y Debugging
+
+- Usa logging estructurado con niveles apropiados (DEBUG, INFO, WARN, ERROR)
+- Configura debugpy para Python y habilita debugging desde el editor
+- Mantén herramientas de desarrollo habilitadas en modo dev
+
+## Docker
+
+- Cada entorno debe tener sus propios Dockerfiles específicos
+- Solo los archivos docker-compose.yml van en la raíz del proyecto
+- Usa builds multi-etapa para optimizar imágenes de producción

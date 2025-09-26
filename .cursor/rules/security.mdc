@@ -1,0 +1,32 @@
+---
+description: Reglas de seguridad y mejores prácticas
+globs: ["**/*.py", "**/*.ts", "**/*.tsx", "**/*.env*", "**/docker-compose*.yml"]
+alwaysApply: true
+---
+
+# Seguridad y Mejores Prácticas
+
+## Variables de Entorno
+
+- Nunca hardcodees API keys, usa variables de entorno
+- No reemplaces los .env cuando haya cambios en el env.example
+- Agrega los elementos nuevos sin eliminar ninguna variable con clave configurada
+
+## Validación de Entrada
+
+- Valida todas las entradas de usuario con Pydantic/Zod
+- Sanitiza todas las entradas de usuario
+- Implementa validación de entrada en todas las APIs
+
+## Configuración de Producción
+
+- Configura CORS apropiadamente para producción
+- Usa HTTPS en producción para WebSockets y APIs
+- Implementa escaneo de dependencias por vulnerabilidades
+- Usa gestión de secretos, nunca hardcodees secrets
+
+## Logging de Auditoría
+
+- Implementa log de auditoría para operaciones sensibles
+- Usa logging estructurado con niveles apropiados
+- No registres información sensible en logs

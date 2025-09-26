@@ -1,0 +1,143 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "conversation-simulator-backend"
+version = "1.0.0"
+description = "Backend for Conversation Simulator - Voice AI Training Platform"
+authors = [{name = "Conversation Simulator Team"}]
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi==0.116.1",
+    "uvicorn[standard]==0.34.0",
+    "websockets==15.0.1",
+    "openai==1.107.2",
+    "aiohttp==3.12.15",
+    "pydantic==2.11.7",
+    "supabase==2.18.1",
+    "sqlalchemy==2.0.43",
+    "alembic==1.16.5",
+    "httpx==0.28.1",
+    "python-dotenv==1.1.1",
+    "python-multipart==0.0.20",
+    "structlog==25.4.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==8.3.4",
+    "pytest-asyncio==0.24.0",
+    "pytest-cov==6.0.0",
+    "pytest-mock==3.14.0",
+    "pytest-xdist==3.6.0",
+    "black==25.1.0",
+    "isort==6.0.1",
+    "flake8==7.3.0",
+    "mypy==1.17.1",
+    "debugpy==1.8.0",
+    "httpx==0.28.1",
+    "faker==33.3.0",
+    "freezegun==1.5.1",
+    "coverage==7.6.9",
+]
+
+[tool.black]
+line-length = 88
+target-version = ['py313']
+include = '\.pyi?$'
+extend-exclude = '''
+/(
+  # directories
+  \.eggs
+  | \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | build
+  | dist
+)/
+'''
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 88
+known_first_party = ["src"]
+known_third_party = ["fastapi", "pydantic", "openai", "sqlalchemy"]
+
+[tool.mypy]
+python_version = "3.13"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+disallow_untyped_decorators = true
+no_implicit_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+warn_no_return = true
+warn_unreachable = true
+strict_equality = true
+
+[[tool.mypy.overrides]]
+module = [
+    "supabase.*",
+    "openai.*",
+    "aiohttp.*",
+]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-v",
+    "--strict-markers",
+    "--strict-config",
+    "--disable-warnings",
+    "--tb=short",
+    "--cov=src",
+    "--cov-report=html:htmlcov",
+    "--cov-report=term-missing",
+    "--cov-report=xml",
+    "--cov-fail-under=80",
+    "--asyncio-mode=auto",
+]
+markers = [
+    "unit: Unit tests",
+    "integration: Integration tests",
+    "slow: Slow running tests",
+    "audio: Audio processing tests",
+    "websocket: WebSocket tests",
+    "api: API endpoint tests",
+    "database: Database tests",
+]
+
+[tool.coverage.run]
+source = ["src"]
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "*/__pycache__/*",
+    "*/migrations/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]

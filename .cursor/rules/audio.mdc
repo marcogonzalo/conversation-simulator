@@ -1,0 +1,38 @@
+---
+description: Reglas específicas para audio y tiempo real
+globs:
+  [
+    "backend/src/audio/**/*.py",
+    "frontend/src/hooks/useAudioRecording.ts",
+    "frontend/src/services/audioService.ts",
+  ]
+alwaysApply: true
+---
+
+# Audio y Tiempo Real
+
+## Performance
+
+- Prioriza latencia baja en comunicación WebSocket
+- Mantén latencia <500ms en conversaciones de voz
+- Usa formato WAV para compatibilidad con navegadores
+- Mantén configuración optimizada de Voice Activity Detection
+
+## Gestión de Recursos
+
+- Limpia recursos de audio y WebSocket cuando no se usen
+- Implementa recuperación automática en fallos de audio
+- Maneja estados de conexión apropiadamente
+
+## WebSockets
+
+- Usa frames binarios para datos de audio
+- Implementa lógica de reconexión
+- Maneja estados de conexión apropiadamente
+
+## Audio Processing
+
+- Usa Web Audio API para grabación
+- Implementa VAD para detección de silencio
+- Convierte PCM a WebM para compatibilidad con navegadores
+- Usa AudioContext para reproducción

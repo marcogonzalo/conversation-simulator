@@ -1,0 +1,36 @@
+---
+description: Reglas de testing y calidad para el proyecto
+globs:
+  [
+    "**/*.py",
+    "**/*.ts",
+    "**/*.tsx",
+    "**/test_*.py",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+  ]
+alwaysApply: true
+---
+
+# Testing y Calidad
+
+## TDD Estricto
+
+- Escribe tests antes del código
+- Cobertura mínima del 80% excluyendo frameworks y librerías de terceros
+- Incluye casos edge en todos los tests
+- Valida escenarios de error y límites
+
+## Estructura de Tests
+
+- Usa markers de pytest (unit, integration, slow, audio, websocket, api, database)
+- Mantén cobertura del 80% en componentes React con Testing Library
+- Usa fixtures de pytest para datos de test
+- Parametriza tests para casos múltiples
+
+## Calidad de Código
+
+- Ejecuta linters en pre-commit y CI/CD
+- Mantén código limpio y bien documentado
+- Usa type hints completos en Python
+- Usa TypeScript estricto, evita 'any' y 'unknown'

@@ -10,6 +10,37 @@ Un simulador de clientes para que agentes de ventas puedan practicar y mejorar s
 - **Recomendaciones personalizadas** de contenido educativo basado en performance
 - **Interfaz minimalista** enfocada en la experiencia conversacional
 
+## �� Testing y Calidad
+
+### Pre-commit Checks
+
+Ejecuta las verificaciones de calidad antes de cada commit:
+
+```bash
+# Ejecutar todas las verificaciones
+./tests/scripts/pre-commit.sh
+
+# Solo backend
+cd backend
+python -m pytest tests/ -v --cov=src --cov-fail-under=80
+python -m mypy src/
+python -m black --check src/
+python -m isort --check-only src/
+
+# Solo frontend
+cd frontend
+npm run test:coverage
+npm run type-check
+npm run lint
+npx prettier --check "src/**/*.{js,jsx,ts,tsx,json,css,md}"
+```
+
+### Cobertura de Tests
+
+- **Backend**: Mínimo 80% de cobertura
+- **Frontend**: Mínimo 80% de cobertura
+- **Exclusiones**: Frameworks y librerías de terceros
+
 ## ⚙️ Configuración
 
 ### Variables de Entorno
@@ -46,23 +77,51 @@ API_HOST=0.0.0.0
 API_PORT=8000
 ```
 
-## 🏗️ Arquitectura
+## 🛠️ Reglas de Desarrollo
 
-### Backend (FastAPI + DDD)
+Este proyecto sigue un conjunto estricto de reglas de desarrollo configuradas en archivos `.mdc` en `.cursor/rules/` según el [sistema actual de Cursor](https://docs.cursor.com/es/context/rules):
 
-- **Arquitectura Domain-Driven Design** con separación clara de responsabilidades
-- **WebSockets** para comunicación en tiempo real
-- **Integración con OpenAI** para generación de personalidades y conversaciones
-- **Integración con OpenAI Realtime API** para conversación de voz audio-to-audio
-- **Supabase** para persistencia de datos
+### 🏗️ Arquitectura
 
-### Frontend (Next.js 15+)
+- **Arquitectura Hexagonal (DDD)**: Separación clara entre dominio, aplicación e infraestructura
+- **CQRS Pattern**: Commands y Queries separados
+- **Event-Driven Architecture**: Comunicación entre contextos via Event Bus
+- **Repository Pattern**: Interfaces abstractas + implementaciones concretas
 
-- **App Router** con estructura moderna
-- **TypeScript** para tipado estático
-- **Tailwind CSS** con modo oscuro por defecto
-- **Web Audio API** para captura y reproducción de audio
-- **Zustand** para manejo de estado
+### 🧪 Testing
+
+- **TDD Estricto**: Tests antes del código, cobertura mínima 80%
+- **Edge Cases**: Incluir casos límite y escenarios de error
+- **Test Markers**: Usar markers de pytest (unit, integration, slow, audio, websocket, api, database)
+- **Frontend Testing**: Cobertura 80% con Testing Library
+
+### 🐳 Docker y Entornos
+
+- **Docker por Entorno**: Dockerfiles específicos para cada servicio
+- **Docker Compose**: Solo en raíz del proyecto
+- **Debugging**: Configuración debugpy para Python, debugging desde editor
+- **Multi-stage Builds**: Optimización de imágenes de producción
+
+### 💻 Código y Estilo
+
+- **Imports Absolutos**: Rutas absolutas preferidas
+- **Console Debugging**: `print('variable_name', variable_name)`
+- **TypeScript Estricto**: Tipado completo, evitar 'any'
+- **Python Type Hints**: Type hints en todas las funciones
+
+### 🎨 Frontend
+
+- **Modo Oscuro**: Implementación obligatoria, oscuro por defecto
+- **Build Validation**: Build exitoso después de cambios
+- **Component Structure**: Componentes pequeños y reutilizables
+- **Responsive Design**: Mobile-first con Tailwind
+
+### 🔊 Audio y Tiempo Real
+
+- **WebSocket Performance**: Latencia <500ms
+- **Audio Formats**: WAV para compatibilidad
+- **VAD Optimization**: Configuración optimizada
+- **Error Recovery**: Recuperación automática en fallos
 
 ## 🛠️ Tecnologías
 
@@ -105,14 +164,14 @@ API_PORT=8000
 
 ### Configuración
 
-#### 1. Clonar el repositorio**
+#### 1. Clonar el repositorio
 
 ```bash
 git clone <repository-url>
 cd conversation-simulator
 ```
 
-####  2. Configurar variables de entorno**
+#### 2. Configurar variables de entorno
 
 ```bash
 cp env.example .env
@@ -126,7 +185,7 @@ SUPABASE_URL=your_supabase_url_here
 SUPABASE_ANON_KEY=your_supabase_anon_key_here
 ```
 
-#### 3. Ejecutar con Docker**
+#### 3. Ejecutar con Docker
 
 ```bash
 # Desarrollo
@@ -225,6 +284,8 @@ npm test
 - **Tasa de finalización**: >80%
 - **Satisfacción del usuario**: Feedback positivo
 - **Retención**: Múltiples sesiones por usuario
+- **Cobertura de tests**: >80%
+- **Build success rate**: 100%
 
 ## 🔧 Desarrollo
 
@@ -293,6 +354,16 @@ conversation-simulator/
 │   ├── Dockerfile                   # Production container
 │   ├── Dockerfile.dev               # Development container
 │   └── package.json
+├── .cursor/                         # Cursor AI configuration
+│   └── rules/                       # Development rules (.mdc files)
+│       ├── architecture.mdc         # Architecture patterns
+│       ├── testing.mdc              # Testing and quality rules
+│       ├── backend.mdc              # Backend-specific rules
+│       ├── frontend.mdc             # Frontend-specific rules
+│       ├── audio.mdc                # Audio and real-time rules
+│       ├── domain.mdc               # Domain-specific rules
+│       ├── security.mdc             # Security and best practices
+│       └── workflow.mdc             # Workflow and project management
 ├── memory-bank/                      # Documentación del proyecto
 ├── docker-compose.yml               # Production
 ├── docker-compose.dev.yml           # Development
@@ -317,15 +388,22 @@ docker-compose logs -f [service]
 
 # Rebuild
 docker-compose -f docker-compose.dev.yml up --build --force-recreate
+
+# Pre-commit checks
+./tests/scripts/pre-commit.sh
+
+# Debugging
+# Usar configuración en .vscode/launch.json
 ```
 
 ## 🤝 Contribución
 
 1. Fork el proyecto
 2. Crear feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit cambios (`git commit -m 'Add some AmazingFeature'`)
-4. Push al branch (`git push origin feature/AmazingFeature`)
-5. Abrir Pull Request
+3. Aplicar reglas de desarrollo (TDD, linting, testing)
+4. Commit cambios (`git commit -m 'Add some AmazingFeature'`)
+5. Push al branch (`git push origin feature/AmazingFeature`)
+6. Abrir Pull Request
 
 ## 📄 Licencia
 

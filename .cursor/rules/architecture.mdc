@@ -1,0 +1,23 @@
+---
+description: Reglas de arquitectura para el proyecto Conversation Simulator
+globs: ["**/*.py", "**/*.ts", "**/*.tsx"]
+alwaysApply: true
+---
+
+# Arquitectura y Patrones
+
+## Arquitectura Hexagonal (DDD)
+
+- Mantén separación clara entre dominio, aplicación e infraestructura
+- Cada módulo debe tener sus propias carpetas domain/, application/ e infrastructure/
+- Aplica Domain-Driven Design con bounded contexts, entities, value objects, repositories y domain services
+- Separa commands y queries en capas de aplicación distintas (CQRS)
+- Usa el Event Bus para comunicación entre contextos
+
+## Patrones de Diseño
+
+- Repository Pattern: Interfaces abstractas + implementaciones concretas
+- Event-Driven Architecture: Comunicación entre contextos via Event Bus
+- Dependency Injection: Inyección de dependencias en todas las capas
+- Value Objects: Objetos inmutables con validación
+- Domain Services: Lógica de negocio en el dominio

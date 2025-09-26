@@ -1,0 +1,40 @@
+---
+description: Reglas específicas del dominio del proyecto
+globs:
+  [
+    "backend/data/personas/**/*.yaml",
+    "frontend/src/types/persona.ts",
+    "backend/src/conversation/**/*.py",
+    "frontend/src/components/conversation/**/*.tsx",
+  ]
+alwaysApply: true
+---
+
+# Dominio Específico - Conversation Simulator
+
+## Personas
+
+- Mantén consistencia en el formato YAML de las personas y su estructura de datos
+- Valida esquema de persona al cargar
+- Carga personas al inicio del sistema
+
+## Conversaciones
+
+- Preserva la integridad de los datos de conversación y análisis
+- Implementa flujo de conversación basado en eventos
+- Persiste estado de conversación
+- Genera analytics de conversación
+
+## Análisis
+
+- Genera análisis detallados y accionables post-conversación
+- Proporciona feedback específico y constructivo para agentes de ventas
+- Usa OpenAI para análisis de conversación
+- Almacena resultados de análisis
+
+## Integración OpenAI
+
+- Mantén consistencia en el uso de la API de OpenAI voice-to-voice
+- Implementa manejo robusto de errores en todas las integraciones externas
+- Considera límites de rate en integraciones con APIs externas
+- Implementa lógica de reintento para operaciones críticas

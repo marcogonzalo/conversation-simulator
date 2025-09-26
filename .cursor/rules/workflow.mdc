@@ -1,0 +1,36 @@
+---
+description: Reglas de flujo de trabajo y gestión del proyecto
+globs: ["**/*"]
+alwaysApply: true
+---
+
+# Flujo de Trabajo y Gestión del Proyecto
+
+## Git y Commits
+
+- Haz commits atómicos: un commit por feature/fix
+- Usa mensajes descriptivos en commits
+- Usa conventional commits para changelog automático
+- Usa branches para features grandes, merge a main cuando esté completo
+
+## Documentación
+
+- Actualiza README y documentación técnica cuando agregues features significativas
+- Mantén actualizada la memoria del proyecto con cambios arquitectónicos importantes
+- Documenta decisiones arquitectónicas importantes
+- Comenta solo el "por qué", no el "qué"
+
+## Desarrollo
+
+- Refactoriza en pasos pequeños con tests que pasen en cada paso
+- Usa feature flags para desarrollo incremental
+- Mantén branches pequeños y merge frecuente
+- Implementa reviews obligatorias para cambios en código crítico
+
+## Comunicación con IA
+
+- Proporciona contexto completo del proyecto cuando trabajes en features complejas
+- Sé específico sobre versiones de dependencias y configuraciones requeridas
+- Valida que las implementaciones cumplan con los patrones establecidos del proyecto
+- Siempre incluye tests cuando implementes nuevas funcionalidades
+- Documenta decisiones tomadas con ayuda de IA
