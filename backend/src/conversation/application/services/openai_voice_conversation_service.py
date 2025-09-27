@@ -143,11 +143,13 @@ class OpenAIVoiceConversationService:
                 "personality": persona.personality_traits.traits,
                 "accent": persona.accent.value,
                 "background": persona.background,
+                "prompt_template": persona.prompt_template,
                 "instructions": self.voice_service.get_instructions_for_persona({
                     "name": persona.name,
                     "personality": persona.personality_traits.traits,
                     "accent": persona.accent.value,
-                    "background": persona.background
+                    "background": persona.background,
+                    "prompt_template": persona.prompt_template
                 })
             }
             
