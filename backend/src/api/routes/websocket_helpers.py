@@ -98,18 +98,25 @@ async def send_text_response(conversation_id: str, text: str):
     }
     await manager.send_message(conversation_id_str, message)
 
-async def send_audio_response(conversation_id: str, audio_data: str):
-    """Send AI audio response to client."""
+async def send_audio_chunk(conversation_id: str, audio_data: str):
+    """Send AI audio chunk for streaming playback."""
     conversation_id_str = str(conversation_id)
-    logger.info(f"Sending audio response to {conversation_id_str}, audio_data length: {len(audio_data)}")
+    message = {
+        "type": "audio_chunk",
+        "audio_data": audio_data,
+        "conversation_id": conversation_id_str
+    }
+    await manager.send_message(conversation_id_str, message)
+
+async def send_audio_response(conversation_id: str, audio_data: str):
+    """Send complete AI audio response to client."""
+    conversation_id_str = str(conversation_id)
     message = {
         "type": "audio_response",
         "audio_data": audio_data,
         "conversation_id": conversation_id_str
     }
-    logger.info(f"Audio response message created: {message['type']}")
     await manager.send_message(conversation_id_str, message)
-    logger.info(f"Audio response sent successfully to {conversation_id_str}")
 
 async def send_persona_info(conversation_id: str, name: str, accent: str):
     """Send persona info to client."""

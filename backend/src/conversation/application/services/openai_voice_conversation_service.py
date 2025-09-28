@@ -3,7 +3,9 @@ OpenAI Voice-to-Voice conversation service for real-time conversations.
 """
 import logging
 import base64
-from typing import Optional, Dict, Any, Callable
+import asyncio
+import numpy as np
+from typing import Optional, Dict, Any, Callable, List, Tuple
 from datetime import datetime
 
 from src.audio.application.services.openai_voice_application_service import OpenAIVoiceApplicationService
@@ -15,7 +17,7 @@ from src.persona.domain.entities.persona import Persona
 from src.persona.domain.repositories.persona_repository import PersonaRepository
 from src.persona.domain.value_objects.persona_id import PersonaId
 from src.shared.infrastructure.messaging.event_bus import event_bus
-from src.api.routes.websocket_helpers import send_error, send_transcribed_text, send_processing_status, send_audio_response
+from src.api.routes.websocket_helpers import send_error, send_transcribed_text, send_processing_status, send_audio_response, send_audio_chunk
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +38,90 @@ class OpenAIVoiceConversationService:
         self.active_conversations: Dict[str, bool] = {}
         # Audio accumulation for complete responses
         self.audio_chunks: Dict[str, list] = {}
+        # Audio buffer for silence-based chunking
+        self.audio_buffer: Dict[str, bytes] = {}
+        # Track if streaming was used for each conversation
+        self.streaming_used: Dict[str, bool] = {}
+        
+    def _detect_silence_segments(self, pcm_data: bytes, sample_rate: int = 24000, 
+                                silence_threshold: float = 0.005, min_silence_duration: float = 0.1) -> List[Tuple[int, int]]:
+        """Detect silence segments in PCM audio data."""
+        try:
+            # Convert bytes to numpy array (PCM16)
+            audio_array = np.frombuffer(pcm_data, dtype=np.int16).astype(np.float32) / 32768.0
+            
+            # Calculate RMS energy in small windows
+            window_size = int(sample_rate * 0.05)  # 50ms windows for better precision
+            hop_size = int(window_size / 2)  # 50% overlap
+            
+            energy = []
+            for i in range(0, len(audio_array) - window_size, hop_size):
+                window = audio_array[i:i + window_size]
+                rms = np.sqrt(np.mean(window ** 2))
+                energy.append(rms)
+            
+            # Find silence segments
+            silence_segments = []
+            in_silence = False
+            silence_start = 0
+            
+            for i, e in enumerate(energy):
+                if e < silence_threshold and not in_silence:
+                    # Start of silence
+                    in_silence = True
+                    silence_start = i * hop_size
+                elif e >= silence_threshold and in_silence:
+                    # End of silence
+                    silence_duration = (i * hop_size - silence_start) / sample_rate
+                    if silence_duration >= min_silence_duration:
+                        silence_segments.append((silence_start, i * hop_size))
+                    in_silence = False
+            
+            # Handle case where audio ends in silence
+            if in_silence:
+                silence_duration = (len(audio_array) - silence_start) / sample_rate
+                if silence_duration >= min_silence_duration:
+                    silence_segments.append((silence_start, len(audio_array)))
+            
+            return silence_segments
+            
+        except Exception as e:
+            logger.error(f"Error detecting silence segments: {e}")
+            return []
+    
+    def _split_audio_by_silence(self, pcm_data: bytes, sample_rate: int = 24000) -> List[bytes]:
+        """Split audio into segments based on silence detection."""
+        try:
+            silence_segments = self._detect_silence_segments(pcm_data, sample_rate)
+            
+            if not silence_segments:
+                # No silence detected, return as single segment
+                return [pcm_data]
+            
+            # Convert to numpy array for easier slicing
+            audio_array = np.frombuffer(pcm_data, dtype=np.int16)
+            segments = []
+            last_end = 0
+            
+            for silence_start, silence_end in silence_segments:
+                # Add segment before silence
+                if silence_start > last_end:
+                    segment = audio_array[last_end:silence_start].tobytes()
+                    if len(segment) > 0:
+                        segments.append(segment)
+                last_end = silence_end
+            
+            # Add remaining audio after last silence
+            if last_end < len(audio_array):
+                segment = audio_array[last_end:].tobytes()
+                if len(segment) > 0:
+                    segments.append(segment)
+            
+            return segments if segments else [pcm_data]
+            
+        except Exception as e:
+            logger.error(f"Error splitting audio by silence: {e}")
+            return [pcm_data]
         
     async def _convert_pcm_to_webm(self, pcm_data: bytes, sample_rate: int = 24000) -> bytes:
         """Convert PCM16 audio data to WebM format for frontend compatibility using ffmpeg."""
@@ -92,6 +178,43 @@ class OpenAIVoiceConversationService:
             logger.error(f"Error converting PCM to WebM: {e}")
             return b''
     
+    async def _process_audio_buffer(self, conversation_id: str):
+        """Process accumulated audio buffer and send segments based on silence detection."""
+        try:
+            if conversation_id not in self.audio_buffer:
+                return
+            
+            buffer_data = self.audio_buffer[conversation_id]
+            if len(buffer_data) < 2400:  # Less than 0.1 seconds at 24kHz (more aggressive processing)
+                return
+            
+            # Force processing if buffer gets too large (prevent accumulation)
+            if len(buffer_data) > 48000:  # More than 2 seconds at 24kHz
+                logger.warning(f"🎵 Buffer too large ({len(buffer_data)} bytes), forcing processing")
+            
+            # Split audio by silence
+            playback_sample_rate = self.voice_service.api_config.audio_playback_sample_rate
+            segments = self._split_audio_by_silence(buffer_data, sample_rate=playback_sample_rate)
+            
+            if len(segments) > 1:
+                # Mark that streaming is being used
+                self.streaming_used[conversation_id] = True
+                
+                # Send all segments except the last one (which might be incomplete)
+                for segment in segments[:-1]:
+                    webm_data = await self._convert_pcm_to_webm(segment, sample_rate=playback_sample_rate)
+                    if webm_data:
+                        audio_base64 = base64.b64encode(webm_data).decode('utf-8')
+                        await send_audio_chunk(conversation_id, audio_base64)
+                
+                # Keep the last segment in buffer (might be incomplete)
+                self.audio_buffer[conversation_id] = segments[-1]
+            else:
+                # No silence detected, keep accumulating
+                pass
+                
+        except Exception as e:
+            logger.error(f"[{conversation_id}] - Error processing audio buffer: {e}", exc_info=True)
     
     async def _send_complete_audio_response(self, conversation_id: str):
         """Send complete audio response after accumulating all chunks."""
@@ -100,21 +223,37 @@ class OpenAIVoiceConversationService:
                 logger.warning(f"[{conversation_id}] - No audio chunks to process")
                 return
             
-            # Combine all PCM chunks
-            complete_pcm = b''.join(self.audio_chunks[conversation_id])
+            # Send any remaining buffer segments first
+            if conversation_id in self.audio_buffer and self.audio_buffer[conversation_id]:
+                await self._process_audio_buffer(conversation_id)
+                # Send the final buffer segment
+                if conversation_id in self.audio_buffer and self.audio_buffer[conversation_id]:
+                    playback_sample_rate = self.voice_service.api_config.audio_playback_sample_rate
+                    webm_data = await self._convert_pcm_to_webm(self.audio_buffer[conversation_id], sample_rate=playback_sample_rate)
+                    if webm_data:
+                        audio_base64 = base64.b64encode(webm_data).decode('utf-8')
+                        await send_audio_chunk(conversation_id, audio_base64)
             
-            # Convert PCM16 to WebM for frontend compatibility
-            playback_sample_rate = self.voice_service.api_config.audio_playback_sample_rate
-            webm_data = await self._convert_pcm_to_webm(complete_pcm, sample_rate=playback_sample_rate)
+            # Only send complete audio if streaming was not used
+            if not self.streaming_used.get(conversation_id, False):
+                
+                # Combine all PCM chunks for complete response
+                complete_pcm = b''.join(self.audio_chunks[conversation_id])
+                
+                # Convert PCM16 to WebM for frontend compatibility
+                playback_sample_rate = self.voice_service.api_config.audio_playback_sample_rate
+                webm_data = await self._convert_pcm_to_webm(complete_pcm, sample_rate=playback_sample_rate)
+                
+                # Convert to base64 for WebSocket transmission
+                audio_base64 = base64.b64encode(webm_data).decode('utf-8')
+                
+                # Send the complete audio response
+                await send_audio_response(conversation_id, audio_base64)
             
-            # Convert to base64 for WebSocket transmission
-            audio_base64 = base64.b64encode(webm_data).decode('utf-8')
-            
-            # Send the complete audio response
-            await send_audio_response(conversation_id, audio_base64)
-            
-            # Clear the accumulated chunks
+            # Clear the accumulated chunks and buffer
             self.audio_chunks[conversation_id] = []
+            self.audio_buffer.pop(conversation_id, None)
+            self.streaming_used.pop(conversation_id, None)
             
         except Exception as e:
             logger.error(f"[{conversation_id}] - Error sending complete audio response: {e}", exc_info=True)
@@ -127,6 +266,11 @@ class OpenAIVoiceConversationService:
         """Start a voice-to-voice conversation."""
         conversation_id = conversation.id.value
         logger.info(f"[{conversation_id}] - Starting voice conversation with persona {persona_id}")
+        
+        # Reset audio state for new conversation/response
+        self.audio_chunks[conversation_id] = []
+        self.audio_buffer[conversation_id] = b''
+        self.streaming_used[conversation_id] = False
         
         try:
             # Get persona
@@ -155,12 +299,30 @@ class OpenAIVoiceConversationService:
             
             # Define callbacks for voice service
             async def on_audio_chunk(audio_data: bytes):
-                """Handle incoming audio chunks from OpenAI."""
+                """Handle incoming audio chunks from OpenAI with silence-based chunking."""
                 try:
-                    # Accumulate audio chunks instead of sending immediately
+                    
+                    # Initialize state if not exists (with reset for new response)
                     if conversation_id not in self.audio_chunks:
                         self.audio_chunks[conversation_id] = []
+                        self.audio_buffer[conversation_id] = b''
+                        self.streaming_used[conversation_id] = False
+                    else:
+                        # Reset state for new response if this is the first chunk
+                        if len(self.audio_chunks[conversation_id]) == 0:
+                            self.audio_buffer[conversation_id] = b''
+                            self.streaming_used[conversation_id] = False
+                    
+                    # Ensure audio_buffer exists (safety check)
+                    if conversation_id not in self.audio_buffer:
+                        self.audio_buffer[conversation_id] = b''
+                    
                     self.audio_chunks[conversation_id].append(audio_data)
+                    self.audio_buffer[conversation_id] += audio_data
+                    
+                    # Process accumulated audio for silence-based chunking
+                    await self._process_audio_buffer(conversation_id)
+                        
                 except Exception as e:
                     logger.error(f"[{conversation_id}] - Error handling audio chunk: {e}", exc_info=True)
             
@@ -168,14 +330,18 @@ class OpenAIVoiceConversationService:
                 """Handle transcript from OpenAI."""
                 try:
                     if transcript.strip():
+                        # Send transcript immediately to frontend (non-blocking)
                         await send_transcribed_text(conversation_id, transcript)
                         
-                        # Save AI message to conversation
-                        await self.conversation_service.send_message(
-                            conversation_id=str(conversation_id),
-                            role="assistant",
-                            content=transcript,
-                            audio_url=None
+                        # Save AI message to conversation (async, non-blocking)
+                        # Don't await this to avoid blocking audio processing
+                        asyncio.create_task(
+                            self.conversation_service.send_message(
+                                conversation_id=str(conversation_id),
+                                role="assistant",
+                                content=transcript,
+                                audio_url=None
+                            )
                         )
                 except Exception as e:
                     logger.error(f"[{conversation_id}] - Error handling transcript: {e}")

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Avatar } from './avatar'
@@ -12,6 +12,7 @@ import { useWebSocket } from '@/hooks/useWebSocket'
 import { useMicrophonePermission } from '@/hooks/useMicrophonePermission'
 import { useConversation, Message } from '@/hooks/useConversation'
 import { AudioService } from '@/services/audioService'
+import { AudioStreamingService } from '@/services/audioStreamingService'
 
 interface ConversationInterfaceProps {
   conversationId?: string
@@ -47,6 +48,9 @@ export function ConversationInterface({
   const [isEnding, setIsEnding] = useState(false)
   const [isReadyToSpeak, setIsReadyToSpeak] = useState(false)
   const [canEndCall, setCanEndCall] = useState(true)
+  
+  // Audio streaming service
+  const audioStreamingRef = useRef<AudioStreamingService | null>(null)
     
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -55,6 +59,30 @@ export function ConversationInterface({
   // Event Handlers (defined before hooks that use them)
   const handleConnect = () => {
     setCallStatus('connected')
+    
+    // Initialize audio streaming service
+    audioStreamingRef.current = new AudioStreamingService(
+      () => {
+        console.log('🎵 Audio streaming started')
+        setIsPlaying(true)
+      },
+      () => {
+        console.log('🎵 Audio streaming ended')
+        setIsPlaying(false)
+        setCurrentAudio(null)
+        
+        // Reset cleanup state to allow recording to restart
+        resetCleanupState()
+        
+        // Wait before starting recording to prevent audio feedback
+        setTimeout(() => {
+          if (!isEnding) {
+            startRecording()
+          }
+        }, 300)
+      }
+    )
+    
     // Set ready to speak after a short delay to allow connection to stabilize
     setTimeout(() => {
       setIsReadyToSpeak(true)
@@ -68,6 +96,13 @@ export function ConversationInterface({
     setCurrentAudio(null)
     setIsReadyToSpeak(false)
     setIsWaitingForResponse(false) // Reset waiting state on disconnect
+    
+    // Stop audio streaming
+    if (audioStreamingRef.current) {
+      audioStreamingRef.current.stop()
+      audioStreamingRef.current = null
+    }
+    
     cleanup()
   }
 
@@ -170,8 +205,11 @@ export function ConversationInterface({
                 return [...prev, newMessage]
               }
             })
-          } else {
-            // This is AI transcription - handle as before            
+          } else if (data.content.startsWith('AI: ')) {
+            // This is AI transcription - handle as before
+            const aiTranscript = data.content.substring(4) // Remove "AI: " prefix
+            console.log('📨 Processing AI transcription:', aiTranscript)
+            
             setMessages(prev => {
               // Buscar el último mensaje de AI de audio (buscar desde atrás)
               let lastAiMessageIndex = -1
@@ -193,21 +231,21 @@ export function ConversationInterface({
                 const updated = [...prev]
                 const currentContent = updated[lastAiMessageIndex].content === '[Audio response]' ? '' : updated[lastAiMessageIndex].content
                 
-                if (data.content) {
+                if (aiTranscript) {
                   // Add a space if the content is a number
-                  const separator = !isNaN(Number(data.content)) ? ' ' : '';
+                  const separator = !isNaN(Number(aiTranscript)) ? ' ' : '';
                   updated[lastAiMessageIndex] = {
                     ...updated[lastAiMessageIndex],
-                    content: currentContent + separator + data.content
+                    content: currentContent + separator + aiTranscript
                   }
                 }
                 return updated
               } else {
                 // Crear un nuevo mensaje AI solo si el contenido no está vacío
-                if (data.content.trim()) {
+                if (aiTranscript.trim()) {
                   const newMessage: Message = {
                     id: `ai_${Date.now()}`,
-                    content: data.content,
+                    content: aiTranscript,
                     sender: 'ai',
                     timestamp: new Date(),
                     isAudio: true
@@ -221,20 +259,22 @@ export function ConversationInterface({
         }
         break
         
+      case 'audio_chunk':
+        if (data.audio_data && audioStreamingRef.current) {
+          audioStreamingRef.current.addAudioChunk(data.audio_data)
+        }
+        break
+        
       case 'text_response':
         console.log('📨 Processing text_response:', data.content)
         addMessage({ content: data.content, sender: 'ai', isAudio: false })
         break
         
       case 'audio_response':
-        console.log('📨 Processing audio_response')
         setIsWaitingForResponse(false)
-        console.log('✅ Received audio response, processing...')
         
-        // No need to add a temporary message - the transcribed text already created the message
-        // The audio response will be played without showing a placeholder
-      
-        if (data.audio_data) {
+        // Only use this as fallback if streaming is not active
+        if (data.audio_data && !audioStreamingRef.current?.getIsPlaying()) {
           try {
             // Stop any currently playing audio to prevent overlap
             if (currentAudio) {
@@ -288,14 +328,6 @@ export function ConversationInterface({
               }
             }, 1000)
           }
-        } else {
-          // Reset cleanup state to allow recording to restart
-          resetCleanupState()
-          setTimeout(() => {
-            if (!isEnding) {
-              startRecording()
-            }
-          }, 500)
         }
         break
         
@@ -350,6 +382,7 @@ export function ConversationInterface({
     isEnding,
     isPlaying
   })
+
 
   // Scroll to bottom when new messages arrive
   const scrollToBottom = () => {

@@ -34,14 +34,38 @@ export class AudioService {
 
   static createAudioElement(audioData: string): HTMLAudioElement {
     try {
+      console.log('🎵 Creating audio element from base64 data...')
+      
       // Decode base64 to get WebM data
       const webmData = Uint8Array.from(atob(audioData), c => c.charCodeAt(0))
+      console.log('🎵 Decoded WebM data:', webmData.length, 'bytes')
       
-      // Create WebM audio blob
-      const audioBlob = new Blob([webmData], { type: 'audio/webm; codecs=opus' })
+      // Create WebM audio blob with proper MIME type
+      const audioBlob = new Blob([webmData], { type: 'audio/webm' })
+      console.log('🎵 Created audio blob:', audioBlob.size, 'bytes, type:', audioBlob.type)
       
       const audioUrl = URL.createObjectURL(audioBlob)
+      console.log('🎵 Created audio URL:', audioUrl)
+      
       const audio = new Audio(audioUrl)
+      
+      // Add detailed error logging
+      audio.addEventListener('error', (e) => {
+        console.error('❌ Audio element error:', e)
+        console.error('❌ Audio error details:', {
+          error: audio.error,
+          networkState: audio.networkState,
+          readyState: audio.readyState,
+          src: audio.src,
+          blobSize: audioBlob.size,
+          blobType: audioBlob.type
+        })
+      })
+      
+      audio.addEventListener('loadstart', () => console.log('🎵 Audio load started'))
+      audio.addEventListener('loadedmetadata', () => console.log('🎵 Audio metadata loaded'))
+      audio.addEventListener('canplay', () => console.log('🎵 Audio can play'))
+      audio.addEventListener('canplaythrough', () => console.log('🎵 Audio can play through'))
       
       return audio
     } catch (error) {
