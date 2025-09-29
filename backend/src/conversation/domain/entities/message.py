@@ -160,9 +160,20 @@ class Message:
         content: str
     ) -> 'Message':
         """Create a system message."""
-        return cls(
+        message = cls(
             message_id=uuid4(),
             conversation_id=conversation_id,
             role=MessageRole.SYSTEM,
             content=MessageContent(content)
         )
+        
+        message._domain_events.append(
+            MessageAdded(
+                conversation_id=conversation_id,
+                message_id=message._id,
+                role=MessageRole.SYSTEM.value,
+                content=content
+            )
+        )
+        
+        return message
