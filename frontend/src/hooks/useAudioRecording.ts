@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { apiConfig } from '@/config/api'
+import { browserCompatibility } from '../utils/browserCompatibility'
 
 interface UseAudioRecordingProps {
   onAudioReady: (audioBlob: Blob) => void
@@ -52,30 +53,47 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
   }, [isRecording])
 
 
-  const setupVoiceActivityDetection = useCallback((stream: MediaStream) => {
+  const setupVoiceActivityDetection = useCallback(async (stream: MediaStream) => {
     try {
       // Check if component is cleaned up or unmounted
       if (isCleanedUpRef.current || !isMountedRef.current) {
         return
       }
       
-      audioContextRef.current = new AudioContext()
+      const capabilities = browserCompatibility.detectCapabilities()
+      const performanceConfig = browserCompatibility.getPerformanceRecommendations()
+      const audioContextOptions = browserCompatibility.getOptimalAudioContextSettings()
+      
+      console.log('🎵 Setting up VAD for', capabilities.browserName, 'with optimizations:', performanceConfig)
+      
+      // Create AudioContext with browser-specific settings
+      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)(audioContextOptions)
+      
+      // Firefox fix: Ensure we use the same sample rate as the stream
+      const streamSampleRate = stream.getAudioTracks()[0]?.getSettings()?.sampleRate || 48000
+      if (audioContextRef.current.sampleRate !== streamSampleRate) {
+        console.log('🔧 Firefox: Recreating AudioContext to match stream sample rate:', streamSampleRate)
+        await audioContextRef.current.close()
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({
+          ...audioContextOptions,
+          sampleRate: streamSampleRate
+        })
+      }
+      
       const source = audioContextRef.current.createMediaStreamSource(stream)
       analyserRef.current = audioContextRef.current.createAnalyser()
       
-      // fftSize determina la resolución de frecuencia del análisis FFT. 
-      // Un valor de 256 significa que el espectro de audio se divide en 128 bandas de frecuencia (fftSize/2), lo que da un balance entre sensibilidad y rendimiento para la detección de voz.
-      analyserRef.current.fftSize = 256
-      // smoothingTimeConstant controla el suavizado de los datos de frecuencia a lo largo del tiempo. 
-      // Un valor de 0.8 hace que los cambios de volumen se promedien, ayudando a filtrar picos breves y proporcionando una detección de voz más estable.
-      analyserRef.current.smoothingTimeConstant = 0.8
+      // Browser-specific FFT size optimization
+      analyserRef.current.fftSize = performanceConfig.audioChunkSize
+      // Browser-specific smoothing for better performance
+      analyserRef.current.smoothingTimeConstant = capabilities.browserName === 'Firefox' ? 0.9 : 0.8
       source.connect(analyserRef.current)
       
       const bufferLength = analyserRef.current.frequencyBinCount
       dataArrayRef.current = new Uint8Array(bufferLength)
       
-      const VAD_THRESHOLD = 3 // Lowered threshold for better sensitivity
-      const SILENCE_DURATION_THRESHOLD = 1500 // Reduced for better fluency (1.5 seconds)
+      const VAD_THRESHOLD = performanceConfig.vadThreshold
+      const SILENCE_DURATION_THRESHOLD = performanceConfig.silenceDuration
       let vadLogCounter = 0
       
       const checkVoiceActivity = () => {
@@ -153,7 +171,9 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
   // Setup VAD when recording starts
   useEffect(() => {
     if (isRecording && streamRef.current) {
-      setupVoiceActivityDetection(streamRef.current)
+      setupVoiceActivityDetection(streamRef.current).catch(error => {
+        console.error('❌ Error in setupVoiceActivityDetection:', error)
+      })
     }
   }, [isRecording, setupVoiceActivityDetection])
 

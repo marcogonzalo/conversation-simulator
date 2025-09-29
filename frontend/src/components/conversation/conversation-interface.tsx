@@ -47,6 +47,7 @@ export function ConversationInterface({
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null)
   const [isEnding, setIsEnding] = useState(false)
   const [isReadyToSpeak, setIsReadyToSpeak] = useState(false)
+  const [audioEnabled, setAudioEnabled] = useState(false)
   const [canEndCall, setCanEndCall] = useState(true)
   
   // Audio streaming service
@@ -109,18 +110,58 @@ export function ConversationInterface({
   // Ref para evitar envíos duplicados
   const lastAudioSentRef = useRef<string | null>(null)
   
+  const enableAudio = async () => {
+    try {
+      // Get microphone permissions to enable audio context in Safari
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: { 
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        } 
+      })
+      
+      // Create AudioContext with the stream to enable audio playback
+      if (typeof window !== 'undefined' && window.AudioContext) {
+        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)()
+        
+        // Create media stream source to keep context active
+        const source = audioContext.createMediaStreamSource(stream)
+        const analyser = audioContext.createAnalyser()
+        source.connect(analyser)
+        
+        if (audioContext.state === 'suspended') {
+          await audioContext.resume()
+        }
+        
+        // Stop the stream and close context after a brief moment
+        setTimeout(() => {
+          stream.getTracks().forEach(track => track.stop())
+          audioContext.close()
+        }, 1000)
+      }
+      
+      setAudioEnabled(true)
+    } catch (error) {
+      console.error('Failed to enable audio:', error)
+      // Even if there's an error, mark as enabled to try anyway
+      setAudioEnabled(true)
+    }
+  }
+
+  const isSafari = () => {
+    if (typeof window === 'undefined') return false
+    return /^((?!chrome|android).)*safari/i.test(navigator.userAgent)
+  }
+
   const handleAudioReady = async (audioBlob: Blob) => {
-    if (isEnding) {
-      console.log('🚫 Conversation ending, not sending audio')
+    if (isEnding || callStatus === 'disconnected') {
       return
     }
-    
-    console.log('🎤 Audio ready, blob size:', audioBlob.size, 'isWaitingForResponse:', isWaitingForResponse)
     
     try {
       // Check if audio blob is valid and has content
       if (!audioBlob || audioBlob.size === 0) {
-        console.log('🚫 Empty audio blob, not sending')
         return
       }
       
@@ -128,16 +169,14 @@ export function ConversationInterface({
       
       // Check if base64 conversion was successful
       if (!base64 || base64.length === 0) {
-        console.log('🚫 Empty base64 audio, not sending')
         return
       }
       
-      // Crear un hash simple del audio para detectar duplicados
+      // Create a simple hash to detect duplicates
       const audioHash = base64.substring(0, 50) + base64.length
       
-      // Verificar si ya se envió este audio
+      // Check if this audio was already sent
       if (lastAudioSentRef.current === audioHash) {
-        console.log('🚫 Duplicate audio detected, not sending')
         return
       }
       
@@ -145,32 +184,31 @@ export function ConversationInterface({
       
       const message = AudioService.createAudioMessage(base64)
       sendMessage(message)
-      console.log('✅ Audio message sent')
       
       setIsWaitingForResponse(true)
-      console.log('⏳ Set isWaitingForResponse to true, waiting for backend response...')
       
-      // Crear mensaje temporal del usuario
+      // Create temporary user message
       addMessage({ content: '[Audio message]', sender: 'user', isAudio: true })
       
     } catch (error) {
-      console.error('❌ Error sending audio:', error)
+      console.error('Error sending audio:', error)
     }
   }
 
   const handleWebSocketMessage = (data: any) => {
-    console.log('📨 WebSocket message:', data.type)
+    // Ignore audio messages if conversation is ending or disconnected
+    if ((isEnding || callStatus === 'disconnected') && data.type === 'audio') {
+      return
+    }
     
     switch (data.type) {
       case 'transcribed_text':
-        console.log('📨 Processing transcribed_text:', data.content)
         
         if (data.content && data.content.trim()) {
           // Check if this is a user transcription (starts with "User: ")
           if (data.content.startsWith('User: ')) {
             // This is user transcription - update the last user audio message
             const userTranscript = data.content.substring(6) // Remove "User: " prefix
-            console.log('📨 Processing user transcription:', userTranscript)
             
             setMessages(prev => {
               // Find the last user audio message
@@ -185,7 +223,6 @@ export function ConversationInterface({
               
               if (lastUserMessageIndex !== -1) {
                 // Update the existing user message
-                console.log('📨 Updating user message with transcription:', userTranscript)
                 const updated = [...prev]
                 updated[lastUserMessageIndex] = {
                   ...updated[lastUserMessageIndex],
@@ -194,7 +231,6 @@ export function ConversationInterface({
                 return updated
               } else {
                 // Create a new user message if none found
-                console.log('📨 Creating new user message with transcription:', userTranscript)
                 const newMessage: Message = {
                   id: `user_${Date.now()}`,
                   content: userTranscript,
@@ -208,7 +244,6 @@ export function ConversationInterface({
           } else if (data.content.startsWith('AI: ')) {
             // This is AI transcription - handle as before
             const aiTranscript = data.content.substring(4) // Remove "AI: " prefix
-            console.log('📨 Processing AI transcription:', aiTranscript)
             
             setMessages(prev => {
               // Buscar el último mensaje de AI de audio (buscar desde atrás)
@@ -266,7 +301,6 @@ export function ConversationInterface({
         break
         
       case 'text_response':
-        console.log('📨 Processing text_response:', data.content)
         addMessage({ content: data.content, sender: 'ai', isAudio: false })
         break
         
@@ -287,16 +321,17 @@ export function ConversationInterface({
             setCurrentAudio(audio)
             setIsPlaying(true)
             
-            audio.oncanplaythrough = () => {
-              audio.play().catch(e => {
-                console.error("❌ Audio play failed:", e)
+            audio.oncanplaythrough = async () => {
+              const playSuccess = await AudioService.playAudio(audio)
+              if (!playSuccess) {
+                console.error("Audio play failed")
                 setIsPlaying(false)
                 setCurrentAudio(null)
-              })
+              }
             }
             
             audio.onerror = (e) => {
-              console.error('❌ Audio error:', e)
+              console.error('Audio error:', e)
               setIsPlaying(false)
               setCurrentAudio(null)
             }
@@ -438,31 +473,33 @@ export function ConversationInterface({
   }
 
   const endCall = () => {
-    console.log('📞 End call initiated')
-    console.log('📞 Stack trace:', new Error().stack)
     setIsEnding(true)
+    setCallStatus('disconnected') // Mark as disconnected immediately
     
     // Immediately stop recording and cleanup
     if (isRecording) {
-      console.log('📞 Stopping recording...')
       stopRecording()
     }
     
     // Force cleanup of audio resources
-    console.log('📞 Cleaning up audio resources...')
     cleanup()
     
     // Clear any pending audio hash to prevent sending stale audio
     lastAudioSentRef.current = null
     
+    // Clear waiting state immediately
+    setIsWaitingForResponse(false)
+    
     setTimeout(() => {
-      console.log('📞 Sending end_voice_conversation message')
       sendMessage({ type: 'end_voice_conversation' })
       setTimeout(() => {
-        console.log('📞 Disconnecting WebSocket')
         disconnect()
-      }, 200)
-    }, 1000) // Reduced timeout for faster cleanup
+        // Clear any remaining audio state
+        setCurrentAudio(null)
+        setIsPlaying(false)
+        setIsWaitingForResponse(false)
+      }, 500) // Increased timeout to ensure proper cleanup
+    }, 500) // Reduced initial timeout
   }
 
   const stopAudio = () => {
@@ -533,6 +570,21 @@ export function ConversationInterface({
                   isReadyToSpeak={isReadyToSpeak}
                 />
               </div>
+
+              {/* Safari Audio Enable Button */}
+              {isSafari() && !audioEnabled && (
+                <div className="mb-4">
+                  <button
+                    onClick={enableAudio}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-xl transition-colors duration-200 flex items-center justify-center gap-2"
+                  >
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.617.79L4.617 13H2a1 1 0 01-1-1V8a1 1 0 011-1h2.617l3.766-3.79a1 1 0 011.617.79zM14.657 2.929a1 1 0 011.414 0A9.972 9.972 0 0119 10a9.972 9.972 0 01-2.929 7.071 1 1 0 01-1.414-1.414A7.971 7.971 0 0017 10c0-2.21-.894-4.208-2.343-5.657a1 1 0 010-1.414zm-2.829 2.828a1 1 0 011.415 0A5.983 5.983 0 0115 10a5.984 5.984 0 01-1.757 4.243 1 1 0 01-1.415-1.415A3.984 3.984 0 0013 10a3.983 3.983 0 00-1.172-2.828 1 1 0 010-1.415z" clipRule="evenodd" />
+                    </svg>
+                    Habilitar Audio y Micrófono (Safari)
+                  </button>
+                </div>
+              )}
 
               {/* Call Controls */}
               <div className="mb-8">

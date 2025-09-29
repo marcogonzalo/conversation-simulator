@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Mic, MicOff, Square } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { browserCompatibility } from '@/utils/browserCompatibility'
 
 interface AudioRecorderProps {
   isRecording: boolean
@@ -28,11 +29,16 @@ export function AudioRecorder({ isRecording, onStart, onStop, onError }: AudioRe
 
   const startRecording = async () => {
     try {
+      const capabilities = browserCompatibility.detectCapabilities()
+      console.log('🎤 Starting recording with', capabilities.browserName, 'optimizations')
+      
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus'
-      })
+      // Get optimal MediaRecorder options for current browser
+      const recorderOptions = browserCompatibility.getOptimalMediaRecorderOptions()
+      console.log('🎤 Using MediaRecorder options:', recorderOptions)
+      
+      const mediaRecorder = new MediaRecorder(stream, recorderOptions)
       
       mediaRecorderRef.current = mediaRecorder
       audioChunksRef.current = []

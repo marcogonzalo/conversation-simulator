@@ -1,7 +1,9 @@
 /**
  * Audio Service
- * Handles audio conversion and WebSocket communication
+ * Handles audio conversion and WebSocket communication with browser compatibility
  */
+
+import { browserCompatibility } from '../utils/browserCompatibility'
 
 export class AudioService {
   private static uint8ArrayToBase64(uint8Array: Uint8Array): string {
@@ -34,20 +36,29 @@ export class AudioService {
 
   static createAudioElement(audioData: string): HTMLAudioElement {
     try {
-      console.log('🎵 Creating audio element from base64 data...')
+      const capabilities = browserCompatibility.detectCapabilities()
+      console.log('🎵 Creating audio element from base64 data for', capabilities.browserName)
       
-      // Decode base64 to get WebM data
-      const webmData = Uint8Array.from(atob(audioData), c => c.charCodeAt(0))
-      console.log('🎵 Decoded WebM data:', webmData.length, 'bytes')
+      // Decode base64 to get audio data
+      const audioDataBytes = Uint8Array.from(atob(audioData), c => c.charCodeAt(0))
+      console.log('🎵 Decoded audio data:', audioDataBytes.length, 'bytes')
       
-      // Create WebM audio blob with proper MIME type
-      const audioBlob = new Blob([webmData], { type: 'audio/webm' })
+      // Use browser-specific MIME type
+      const mimeType = capabilities.preferredAudioFormat || 'audio/webm'
+      console.log('🎵 Using MIME type:', mimeType, 'for', capabilities.browserName)
+      
+      // Create audio blob with browser-appropriate MIME type
+      const audioBlob = new Blob([audioDataBytes], { type: mimeType })
       console.log('🎵 Created audio blob:', audioBlob.size, 'bytes, type:', audioBlob.type)
       
       const audioUrl = URL.createObjectURL(audioBlob)
       console.log('🎵 Created audio URL:', audioUrl)
       
       const audio = new Audio(audioUrl)
+      
+      // Apply browser-specific optimizations
+      const performanceConfig = browserCompatibility.getPerformanceRecommendations()
+      audio.preload = performanceConfig.preloadStrategy
       
       // Add detailed error logging
       audio.addEventListener('error', (e) => {
@@ -72,5 +83,9 @@ export class AudioService {
       console.error('❌ Error creating audio element:', error)
       throw error
     }
+  }
+
+  static async playAudio(audioElement: HTMLAudioElement): Promise<boolean> {
+    return await browserCompatibility.playAudioWithUserGesture(audioElement)
   }
 }

@@ -11,12 +11,14 @@ export function useWebSocket({ onMessage, onConnect, onDisconnect }: UseWebSocke
   const [isConnected, setIsConnected] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [realConversationId, setRealConversationId] = useState<string | null>(null)
+  const [isEnding, setIsEnding] = useState(false)
   
   const websocketRef = useRef<WebSocket | null>(null)
 
   const connect = useCallback(async (personaId: string) => {
     try {
       setIsLoading(true)
+      setIsEnding(false) // Reset ending state for new conversation
       console.log('Creating conversation...')
       
       // Create conversation
@@ -58,6 +60,13 @@ export function useWebSocket({ onMessage, onConnect, onDisconnect }: UseWebSocke
         try {
           const data = JSON.parse(event.data)
           console.log('📨 Parsed WebSocket message:', data)
+          
+          // Ignore audio messages if conversation is ending
+          if (isEnding && data.type === 'audio') {
+            console.log('📨 Ignoring audio message during conversation end')
+            return
+          }
+          
           onMessage(data)
         } catch (error) {
           console.error('❌ Error parsing WebSocket message:', error)
@@ -88,6 +97,12 @@ export function useWebSocket({ onMessage, onConnect, onDisconnect }: UseWebSocke
   const sendMessage = useCallback((message: any) => {
     console.log('📤 sendMessage called:', message.type)
     console.log('📤 Message content:', message)
+    
+    // Mark as ending when sending end_voice_conversation
+    if (message.type === 'end_voice_conversation') {
+      setIsEnding(true)
+    }
+    
     if (websocketRef.current && websocketRef.current.readyState === WebSocket.OPEN) {
       console.log('📤 WebSocket is open, sending message...')
       const messageString = JSON.stringify(message)

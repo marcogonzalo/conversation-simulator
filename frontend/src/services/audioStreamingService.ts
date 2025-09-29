@@ -1,7 +1,9 @@
 /**
  * Audio Streaming Service
- * Handles streaming audio playback for real-time conversation experience
+ * Handles streaming audio playback for real-time conversation experience with browser compatibility
  */
+
+import { browserCompatibility } from '../utils/browserCompatibility'
 
 export class AudioStreamingService {
   private audioQueue: HTMLAudioElement[] = []
@@ -23,17 +25,22 @@ export class AudioStreamingService {
    */
   addAudioChunk(audioData: string): void {
     try {
+      const capabilities = browserCompatibility.detectCapabilities()
+      const performanceConfig = browserCompatibility.getPerformanceRecommendations()
       
-      // Decode base64 to get WebM data
-      const webmData = Uint8Array.from(atob(audioData), c => c.charCodeAt(0))
+      // Decode base64 to get audio data
+      const audioDataBytes = Uint8Array.from(atob(audioData), c => c.charCodeAt(0))
       
-      // Create WebM audio blob
-      const audioBlob = new Blob([webmData], { type: 'audio/webm' })
+      // Use browser-specific MIME type
+      const mimeType = capabilities.preferredAudioFormat || 'audio/webm'
+      
+      // Create audio blob with browser-appropriate MIME type
+      const audioBlob = new Blob([audioDataBytes], { type: mimeType })
       const audioUrl = URL.createObjectURL(audioBlob)
       const audio = new Audio(audioUrl)
       
-      // Preload the audio for smoother playback
-      audio.preload = 'auto'
+      // Apply browser-specific preload strategy
+      audio.preload = performanceConfig.preloadStrategy
       
       // Add to queue
       this.audioQueue.push(audio)
@@ -69,11 +76,12 @@ export class AudioStreamingService {
     }
 
     // Set up event handlers
-    audio.oncanplaythrough = () => {
-      audio.play().catch(e => {
-        console.error('❌ Audio play failed:', e)
+    audio.oncanplaythrough = async () => {
+      const playSuccess = await browserCompatibility.playAudioWithUserGesture(audio)
+      if (!playSuccess) {
+        console.error('AudioStreamingService: Audio play failed, trying next chunk')
         this.playNext() // Try next chunk
-      })
+      }
     }
 
     audio.onended = () => {

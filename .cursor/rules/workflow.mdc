@@ -12,6 +12,8 @@ alwaysApply: true
 - Usa mensajes descriptivos en commits
 - Usa conventional commits para changelog automático
 - Usa branches para features grandes, merge a main cuando esté completo
+- Escribe los commits y el código en inglés
+- No se debe generar un commit sin contar con mi aprobación
 
 ## Documentación
 
