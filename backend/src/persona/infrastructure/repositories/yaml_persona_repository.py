@@ -16,7 +16,7 @@ from src.persona.domain.repositories.persona_repository import PersonaRepository
 class YAMLPersonaRepository(PersonaRepository):
     """YAML implementation of persona repository."""
     
-    def __init__(self, personas_dir: str = "data/personas"):
+    def __init__(self, personas_dir: str = "config/personas"):
         self.personas_dir = Path(personas_dir)
         self.personas_dir.mkdir(parents=True, exist_ok=True)
     

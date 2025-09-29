@@ -90,7 +90,7 @@ class GetPersonaByIdQueryHandler:
         try:
             from src.persona.domain.value_objects.persona_id import PersonaId
             
-            persona_id = PersonaId(UUID(query.persona_id))
+            persona_id = PersonaId.from_string(query.persona_id)
             persona = await self._persona_repository.get_by_id(persona_id)
             
             if not persona:
@@ -102,7 +102,7 @@ class GetPersonaByIdQueryHandler:
             
             # Convert to DTO
             persona_dto = PersonaDto(
-                id=str(persona.id.value),
+                id=persona.id.value,
                 name=persona.name,
                 description=persona.description,
                 background=persona.background,
