@@ -13,6 +13,7 @@ import { useMicrophonePermission } from '@/hooks/useMicrophonePermission'
 import { useConversation, Message } from '@/hooks/useConversation'
 import { AudioService } from '@/services/audioService'
 import { AudioStreamingService } from '@/services/audioStreamingService'
+import { processTextChunk } from '@/utils/textChunkProcessor'
 
 interface ConversationInterfaceProps {
   conversationId?: string
@@ -256,39 +257,37 @@ export function ConversationInterface({
                 }
               }
               
-              // Solo actualizar si el mensaje es muy reciente (últimos 10 segundos)
+              // Solo actualizar si el mensaje es muy reciente (últimos 5 segundos)
               // Esto evita concatenar fragmentos de respuestas anteriores
               const isRecentMessage = lastAiMessageIndex !== -1 && 
-                prev[lastAiMessageIndex].timestamp.getTime() > Date.now() - 10000
+                prev[lastAiMessageIndex].timestamp.getTime() > Date.now() - 5000
               
-              if (isRecentMessage) {
-                // Actualizar el mensaje AI existente
+              if (isRecentMessage && aiTranscript.trim()) {
+                // Actualizar el mensaje AI existente solo si el contenido es diferente
                 const updated = [...prev]
                 const currentContent = updated[lastAiMessageIndex].content === '[Audio response]' ? '' : updated[lastAiMessageIndex].content
                 
-                if (aiTranscript) {
-                  // Add a space if the content is a number
-                  const separator = !isNaN(Number(aiTranscript)) ? ' ' : '';
+                if (aiTranscript.trim()) {
+                  // Use the smart text chunk processor for proper concatenation
+                  const processedContent = processTextChunk(currentContent, aiTranscript)
                   updated[lastAiMessageIndex] = {
                     ...updated[lastAiMessageIndex],
-                    content: currentContent + separator + aiTranscript
+                    content: processedContent
                   }
                 }
                 return updated
-              } else {
+              } else if (aiTranscript.trim()) {
                 // Crear un nuevo mensaje AI solo si el contenido no está vacío
-                if (aiTranscript.trim()) {
-                  const newMessage: Message = {
-                    id: `ai_${Date.now()}`,
-                    content: aiTranscript,
-                    sender: 'ai',
-                    timestamp: new Date(),
-                    isAudio: true
-                  }
-                  return [...prev, newMessage]
+                const newMessage: Message = {
+                  id: `ai_${Date.now()}`,
+                  content: aiTranscript,
+                  sender: 'ai',
+                  timestamp: new Date(),
+                  isAudio: true
                 }
-                return prev
+                return [...prev, newMessage]
               }
+              return prev
             })
           }
         }
@@ -415,7 +414,11 @@ export function ConversationInterface({
     onAudioReady: handleAudioReady,
     isWaitingForResponse,
     isEnding,
-    isPlaying
+    isPlaying,
+    onStartRecording: () => {
+      // Reset waiting state when user starts recording
+      setIsWaitingForResponse(false)
+    }
   })
 
 
