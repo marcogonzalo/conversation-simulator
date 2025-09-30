@@ -15,7 +15,7 @@ from src.persona.domain.exceptions import PersonaConfigurationError
 class PersonaLoaderService:
     """Service for loading personas from YAML configuration files."""
     
-    def __init__(self, personas_dir: str = "data/personas"):
+    def __init__(self, personas_dir: str = "config/persona_details"):
         self.personas_dir = Path(personas_dir)
         self.personas_dir.mkdir(parents=True, exist_ok=True)
     

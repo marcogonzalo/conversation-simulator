@@ -11,12 +11,13 @@ from src.persona.domain.entities.persona import Persona, AccentType
 from src.persona.domain.value_objects.persona_id import PersonaId
 from src.persona.domain.value_objects.personality_traits import PersonalityTraits, PersonalityTrait
 from src.persona.domain.repositories.persona_repository import PersonaRepository
+from src.persona.infrastructure.adapters.persona_adapter import PersonaAdapter
 
 
 class YAMLPersonaRepository(PersonaRepository):
     """YAML implementation of persona repository."""
     
-    def __init__(self, personas_dir: str = "config/personas"):
+    def __init__(self, personas_dir: str = "config/persona_details"):
         self.personas_dir = Path(personas_dir)
         self.personas_dir.mkdir(parents=True, exist_ok=True)
     
@@ -114,34 +115,40 @@ class YAMLPersonaRepository(PersonaRepository):
     def _dict_to_persona(self, data: dict) -> Optional[Persona]:
         """Convert dictionary to persona entity."""
         try:
-            from datetime import datetime
+            # Check if this is the new format (has 'identity' key) or legacy format
+            if 'identity' in data:
+                # New format - use adapter
+                return PersonaAdapter.new_format_to_legacy_entity(data)
+            else:
+                # Legacy format - use original logic
+                from datetime import datetime
+                
+                # Create personality traits
+                personality_traits = PersonalityTraits.from_strings(data.get('personality_traits', []))
+                
+                # Create persona
+                persona = Persona(
+                    persona_id=PersonaId.from_string(data['id']),
+                    name=data['name'],
+                    description=data['description'],
+                    background=data['background'],
+                    personality_traits=personality_traits,
+                    accent=AccentType(data['accent']),
+                    voice_id=data['voice_id'],
+                    prompt_template=data['prompt_template'],
+                    conversation_goals=data.get('conversation_goals', []),
+                    pain_points=data.get('pain_points', []),
+                    objections=data.get('objections', []),
+                    decision_factors=data.get('decision_factors', []),
+                    budget_range=data.get('budget_range'),
+                    timeline=data.get('timeline'),
+                    company_size=data.get('company_size'),
+                    industry=data.get('industry'),
+                    metadata=data.get('metadata', {})
+                )
+                
+                return persona
             
-            # Create personality traits
-            personality_traits = PersonalityTraits.from_strings(data.get('personality_traits', []))
-            
-            # Create persona
-            persona = Persona(
-                persona_id=PersonaId.from_string(data['id']),
-                name=data['name'],
-                description=data['description'],
-                background=data['background'],
-                personality_traits=personality_traits,
-                accent=AccentType(data['accent']),
-                voice_id=data['voice_id'],
-                prompt_template=data['prompt_template'],
-                conversation_goals=data.get('conversation_goals', []),
-                pain_points=data.get('pain_points', []),
-                objections=data.get('objections', []),
-                decision_factors=data.get('decision_factors', []),
-                budget_range=data.get('budget_range'),
-                timeline=data.get('timeline'),
-                company_size=data.get('company_size'),
-                industry=data.get('industry'),
-                metadata=data.get('metadata', {})
-            )
-            
-            return persona
-        
         except Exception as e:
             print(f"Error converting dict to persona: {e}")
             return None

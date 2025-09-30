@@ -11,6 +11,7 @@ from src.api.routes.persona import router as persona_router
 from src.api.routes.analysis import router as analysis_router
 from src.api.routes.websocket import router as websocket_router
 from src.api.routes.audio import router as audio_router
+from src.api.routes.prompt import router as prompt_router
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +57,12 @@ def create_app(lifespan: Callable = None) -> FastAPI:
         audio_router,
         prefix="/api/v1/audio",
         tags=["audio"]
+    )
+    
+    app.include_router(
+        prompt_router,
+        prefix="/api/v1",
+        tags=["prompts"]
     )
     
     # Health check endpoint

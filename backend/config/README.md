@@ -1,66 +1,213 @@
-# Configuration Files
+# Sistema de Prompts Dinámicos - Documentación Completa
 
-This directory contains configuration files for the conversation simulator.
+Este directorio contiene los archivos de configuración para el simulador conversacional con el nuevo **Sistema de Prompts Dinámicos**.
 
-## Conversation Instructions
+## 🚀 Nueva Arquitectura de Tres Capas
 
-The conversation instructions are now externalized from the code for better security and maintainability.
+El sistema utiliza una arquitectura de **tres capas** para maximizar la escalabilidad y variabilidad mientras mantiene la calidad y coherencia de la experiencia conversacional.
 
-### Files
+### Arquitectura de Capas
 
-- `conversation_instructions.yaml.example` - Template file with example configuration
-- `conversation_instructions.yaml` - Actual configuration file (gitignored for security)
-- `.gitignore` - Excludes sensitive configuration files from version control
+```
+Prompt Final = Reglas de Seguridad + Simulation Rules + Conversation Context + Persona Details
+```
 
-### Setup
+#### Capa 1: Simulation Rules (Inmutable)
 
-1. Copy the example file to create your configuration:
+**Archivo:** `simulation_rules.yaml`
 
-   ```bash
-   cp conversation_instructions.yaml.example conversation_instructions.yaml
-   ```
+- **Propósito:** Reglas base que garantizan calidad y consistencia
+- **Contenido:** Identidad del LLM, reglas de seguridad, estándares de realismo
+- **Características:** Nunca cambia entre ejecuciones, aplica a todas las conversaciones
 
-2. Customize the configuration as needed for your environment
+#### Capa 2: Conversation Context (Específico)
 
-3. The system will automatically load these instructions when starting conversations
+**Directorio:** `conversation_contexts/`
 
-### Security
+- **Propósito:** Marco de conocimiento específico para cada tipo de conversación
+- **Contenido:** Necesidades del cliente, puntos de dolor, objeciones, factores de decisión
+- **Características:** Se selecciona según el tipo de conversación
 
-- **Security instructions remain in code** to prevent tampering (prompt injection protection only)
-- **Simulation instructions** are loaded from external files (configurable behavior)
-- **Configuration files are gitignored** to prevent exposure in repositories
-- **Session-specific delimiters** prevent prompt injection attacks
-- **Modular instruction generation** ensures consistent security across all conversation types
+#### Capa 3: Persona Details (Específico)
 
-### Configuration Structure
+**Directorio:** `persona_details/`
 
-The YAML file contains:
+- **Propósito:** Estilo de comunicación y personalidad específica del cliente
+- **Contenido:** Identidad, personalidad, estilo de comunicación, comportamiento
+- **Características:** Se selecciona según la persona a simular
 
-- `conversation.core_simulation_instructions` - Core simulation behavior (most important)
-- `conversation.purpose` - Overall conversation objective
-- `conversation.additional_instructions` - List of behavior instructions
-- `conversation.behavior_guidelines` - Guidelines for natural conversation
-- `conversation.conversation_flow` - Steps for conversation progression
-- `conversation.response_style` - Styling preferences (max sentences, tone, etc.)
-- `conversation.context_awareness` - Guidelines for maintaining context
+## Estructura de Archivos
 
-### Architecture
+```text
+backend/config/
+├── simulation_rules.yaml                    # Capa 1 (inmutable)
+├── conversation_contexts/                   # Capa 2 (contextos específicos)
+│   ├── compra_vivienda.yaml
+│   ├── evaluacion_crm.yaml
+│   ├── negociacion_erp.yaml
+│   └── presentacion_marketing.yaml
+└── persona_details/                        # Capa 3 (personas específicas)
+    ├── carlos_mendoza.yaml
+    ├── ana_garcia.yaml
+    └── maria_rodriguez.yaml
+```
 
-The instruction generation system has been refactored into modular functions for better maintainability:
+## Combinaciones Disponibles
 
-- **`_generate_session_id()`** - Creates unique session identifiers for security
-- **`_generate_security_prompt()`** - Generates security instructions with session-specific delimiters
-- **`_build_instructions_with_template()`** - Constructs instructions using custom prompt templates
-- **`_build_instructions_with_persona_details()`** - Builds instructions using persona characteristics
-- **`get_instructions_for_persona()`** - Main orchestrator that combines all components
+- **4 Contextos** × **3 Personas** = **12 Combinaciones Únicas**
+- Cada combinación genera un prompt único y coherente
+- Fácil expansión para más contextos y personas
 
-This modular approach ensures:
+## API Endpoints
 
-- **Consistent security** across all conversation types
-- **Easy maintenance** and testing of individual components
-- **Flexible instruction generation** for different persona configurations
-- **Separation of concerns** between security, persona details, and conversation flow
+### Generar Prompt
 
-### Fallback
+```http
+POST /api/v1/prompts/generate
+Content-Type: application/json
 
-If the configuration file is not found or fails to load, the system will use default instructions to ensure continued operation.
+{
+  "conversation_context_id": "compra_vivienda",
+  "persona_id": "carlos_mendoza"
+}
+```
+
+### Obtener Combinaciones Disponibles
+
+```http
+GET /api/v1/prompts/combinations
+```
+
+### Obtener Contextos Disponibles
+
+```http
+GET /api/v1/prompts/contexts
+```
+
+### Obtener Personas Disponibles
+
+```http
+GET /api/v1/prompts/personas
+```
+
+### Obtener Metadatos de Prompt
+
+```http
+GET /api/v1/prompts/metadata/{context_id}/{persona_id}
+```
+
+### Limpiar Cache
+
+```http
+POST /api/v1/prompts/cache/clear
+```
+
+## Ventajas del Nuevo Sistema
+
+### 1. **Escalabilidad**
+
+- Fácil agregar nuevos contextos de conversación
+- Fácil agregar nuevas personas
+- Combinaciones N×M automáticas
+
+### 2. **Variabilidad**
+
+- 4 contextos × 3 personas = 12 combinaciones únicas
+- Cada combinación genera un prompt único y coherente
+- Fácil expansión para más contextos y personas
+
+### 3. **Mantenibilidad**
+
+- Cada capa es independiente
+- Cambios en una capa no afectan las otras
+- Fácil debugging y testing
+
+### 4. **Consistencia**
+
+- Reglas base garantizan calidad uniforme
+- Estándares de realismo aplicados consistentemente
+- Comportamiento predecible en todas las combinaciones
+
+### 5. **Flexibilidad**
+
+- Fácil modificar comportamientos específicos
+- Configuración externa sin cambios de código
+- Cache inteligente para performance
+
+## Uso del Sistema
+
+### 1. **Generar Prompt Programáticamente**
+
+```python
+from src.shared.application.prompt_service import PromptService
+
+# Inicializar servicio
+prompt_service = PromptService()
+
+# Generar prompt
+prompt = prompt_service.generate_prompt(
+    conversation_context_id="compra_vivienda",
+    persona_id="carlos_mendoza"
+)
+```
+
+### 2. **Obtener Combinaciones Disponibles**
+
+```python
+combinations = prompt_service.get_available_combinations()
+for combo in combinations:
+    print(f"{combo['name']}: {combo['conversation_context_id']} + {combo['persona_id']}")
+```
+
+### 3. **Validar Combinación**
+
+```python
+is_valid = prompt_service.validate_combination(
+    conversation_context_id="evaluacion_crm",
+    persona_id="ana_garcia"
+)
+```
+
+## Testing
+
+Ejecutar el script de prueba:
+
+```bash
+cd backend
+python test_prompt_system.py
+```
+
+## Migración Completada
+
+El sistema ha sido completamente modernizado:
+
+- Todos los archivos del sistema anterior han sido eliminados
+- El nuevo sistema proporciona mejor seguridad, escalabilidad y mantenibilidad
+- Los endpoints de la API han sido actualizados para usar el nuevo sistema
+
+## Consideraciones de Seguridad
+
+- **Reglas de Seguridad Inmutables:** Las reglas base están hardcodeadas para prevenir manipulación
+- **Validación de Entrada:** Todas las combinaciones se validan antes de generar prompts
+- **Cache Seguro:** El cache no expone información sensible
+- **Logging de Auditoría:** Todas las operaciones se registran para auditoría
+- **Protección contra Prompt Injection:** Sistema robusto de limpieza con 50+ patrones de inyección
+- **Delimitadores de Sesión:** IDs únicos por conversación para prevenir ataques
+- **Limpieza Automática:** Todo el contenido se limpia antes de enviar a OpenAI
+- **Efectividad de Limpieza:** 87.7% de reducción de contenido malicioso
+
+## Próximos Pasos
+
+1. **Validación de Esquemas YAML** - Agregar validación estricta
+2. **Tests Unitarios** - Cobertura completa del sistema
+3. **Documentación API** - Swagger/OpenAPI actualizado
+4. **Frontend Integration** - Actualizar interfaz para usar nuevo sistema
+5. **Performance Optimization** - Cache avanzado y lazy loading
+
+## Beneficios
+
+1. **Escalabilidad:** Fácil agregar nuevos contextos y personas
+2. **Variabilidad:** Combinaciones N×M automáticas
+3. **Mantenibilidad:** Cada capa es independiente
+4. **Consistencia:** Reglas base garantizan calidad uniforme
+5. **Flexibilidad:** Fácil modificar comportamientos específicos

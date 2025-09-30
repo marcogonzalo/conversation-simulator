@@ -7,9 +7,10 @@ interface UseAudioRecordingProps {
   isWaitingForResponse: boolean
   isEnding: boolean
   isPlaying?: boolean
+  onStartRecording?: () => void // Callback when recording starts
 }
 
-export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding, isPlaying = false }: UseAudioRecordingProps) {
+export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding, isPlaying = false, onStartRecording }: UseAudioRecordingProps) {
   const [isRecording, setIsRecording] = useState(false)
   const [isSpeaking, setIsSpeaking] = useState(false)
   
@@ -242,6 +243,11 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
       
       mediaRecorder.start()
       setIsRecording(true)
+      
+      // Call the callback when recording starts
+      if (onStartRecording) {
+        onStartRecording()
+      }
       
     } catch (error) {
       console.error('❌ Error starting recording:', error)
