@@ -218,6 +218,17 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
       }
       
       mediaRecorder.onstop = async () => {
+        // Don't process audio if component is cleaned up, unmounted, or ending
+        if (isCleanedUpRef.current || !isMountedRef.current || isEnding) {
+          console.log('🎤 Skipping audio processing - component cleaned up, unmounted, or ending')
+          // Cleanup stream
+          if (streamRef.current) {
+            streamRef.current.getTracks().forEach(track => track.stop())
+            streamRef.current = null
+          }
+          return
+        }
+        
         const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
         
         // Use configured minimum audio duration
