@@ -211,6 +211,61 @@ export class BrowserCompatibility {
 
   /**
    * Get browser-specific performance recommendations
+   * 
+   * AUDIO PERFORMANCE CONFIGURATION BY BROWSER
+   * ===========================================
+   * 
+   * This configuration optimizes audio behavior for each browser
+   * based on differences in their rendering engines and audio processing.
+   * 
+   * CONFIGURABLE ATTRIBUTES:
+   * ------------------------
+   * 
+   * 1. vadThreshold (Voice Activity Detection Threshold)
+   *    - Range: 1-10 (recommended: 3-7)
+   *    - Low values (1-3): More sensitive, detects voice with low volume
+   *    - High values (6-10): Less sensitive, requires more volume to activate
+   *    - Current value: 5 (balance between sensitivity and noise filtering)
+   *    - Impact: Affects when voice recording starts
+   * 
+   * 2. silenceDuration (Silence Duration to Stop Recording)
+   *    - Range: 500-5000ms (recommended: 1000-2000ms)
+   *    - Low values (500-1000ms): Stops recording quickly, may cut words
+   *    - High values (3000-5000ms): Waits longer, may record unnecessary silence
+   *    - Current value: 1500ms (1.5 seconds of silence to confirm end of speech)
+   *    - Impact: Determines when user is considered to have finished speaking
+   * 
+   * 3. audioChunkSize (Audio Chunk Size)
+   *    - Common values: 256, 512, 1024, 2048, 4096
+   *    - Small chunks (256-512): Lower latency, more processing overhead
+   *    - Large chunks (2048-4096): Less overhead, higher latency
+   *    - Current value: 1024 (optimal balance between latency and performance)
+   *    - Impact: Affects audio processing frequency and latency
+   * 
+   * 4. preloadStrategy (Audio Preload Strategy)
+   *    - 'none': No preload, downloads only when playing
+   *      * Advantages: Saves bandwidth and memory
+   *      * Disadvantages: Notable delay when playing
+   *    - 'metadata': Only downloads metadata (duration, size, format)
+   *      * Advantages: Knows properties without downloading everything
+   *      * Disadvantages: Small delay when playing
+   *    - 'auto': Downloads entire audio immediately
+   *      * Advantages: Instant playback
+   *      * Disadvantages: Consumes more bandwidth and memory
+   *    - Impact: Affects user experience and resource usage
+   * 
+   * BROWSER CONSIDERATIONS:
+   * ----------------------
+   * - Firefox: Uses Gecko Engine, more conservative with memory
+   * - Safari: Uses WebKit, optimized for macOS/iOS
+   * - Chrome/Edge: Uses Blink Engine, balance between performance and compatibility
+   * 
+   * IMPORTANT NOTES:
+   * ---------------
+   * - VAD Threshold: Very low values may activate with background noise
+   * - Silence Duration: Should be consistent to avoid premature cuts
+   * - Audio Chunk Size: Directly affects conversation latency
+   * - Preload Strategy: Critical for real-time user experience
    */
   getPerformanceRecommendations(): {
     vadThreshold: number;
@@ -223,14 +278,14 @@ export class BrowserCompatibility {
     switch (capabilities.browserName) {
       case 'Firefox':
         return {
-          vadThreshold: 4, // Higher threshold for Firefox
-          silenceDuration: 2000, // Longer silence detection
-          audioChunkSize: 1024, // Smaller chunks
+          vadThreshold: 5,
+          silenceDuration: 1500,
+          audioChunkSize: 1024,
           preloadStrategy: 'metadata'
         };
       case 'Safari':
         return {
-          vadThreshold: 3,
+          vadThreshold: 5,
           silenceDuration: 1500,
           audioChunkSize: 2048,
           preloadStrategy: 'auto'
@@ -238,14 +293,14 @@ export class BrowserCompatibility {
       case 'Chrome':
       case 'Edge':
         return {
-          vadThreshold: 3,
+          vadThreshold: 5,
           silenceDuration: 1500,
           audioChunkSize: 1024,
           preloadStrategy: 'auto'
         };
       default:
         return {
-          vadThreshold: 3,
+          vadThreshold: 5,
           silenceDuration: 1500,
           audioChunkSize: 1024,
           preloadStrategy: 'metadata'

@@ -85,12 +85,13 @@ export function ConversationInterface({
         // Reset cleanup state to allow recording to restart
         resetCleanupState()
         
-        // Wait before starting recording to prevent audio feedback
+        // Use dynamic delay based on streaming state
+        const delay = getAudioEndDelay(false)
         setTimeout(() => {
           if (!isEnding) {
             startRecording()
           }
-        }, 300)
+        }, delay)
       }
     )
     
@@ -119,6 +120,52 @@ export function ConversationInterface({
 
   // Ref para evitar envíos duplicados
   const lastAudioSentRef = useRef<string | null>(null)
+  
+  /**
+   * Calculate dynamic delay before starting recording after audio ends
+   * This ensures smooth transitions and prevents premature microphone activation
+   * 
+   * DYNAMIC BUFFER LOGIC:
+   * - Base delay: 300ms (minimum time to prevent audio feedback)
+   * - Streaming active: +500ms (800ms total - wait for streaming to finish)
+   * - Pending chunks: +200ms (1000ms total - wait for all chunks to play)
+   * - Error recovery: Use longer 1000ms delay
+   * 
+   * @param isError - Whether this is called from error recovery
+   * @returns Delay in milliseconds
+   */
+  const getAudioEndDelay = useCallback((isError: boolean = false): number => {
+    // Use longer delay for error recovery
+    if (isError) {
+      return 500
+    }
+    
+    // Base delay to prevent audio feedback
+    let delay = 300
+    
+    // Check if audio streaming is active
+    const isStreamingActive = audioStreamingRef.current?.getIsPlaying() || false
+    const hasPendingChunks = audioStreamingRef.current?.hasPendingChunks() || false
+    
+    // Add buffer for active streaming
+    if (isStreamingActive) {
+      delay += 500 // Total: 800ms
+      console.log('🎵 Dynamic buffer: Streaming active, using 800ms delay')
+    }
+    
+    // Add additional buffer if there are pending chunks
+    if (hasPendingChunks) {
+      delay += 200 // Total: 1000ms
+      console.log('🎵 Dynamic buffer: Pending chunks detected, using 1000ms delay')
+    }
+    
+    // Log the calculated delay for debugging
+    if (!isStreamingActive && !hasPendingChunks) {
+      console.log('🎵 Dynamic buffer: No streaming, using base 300ms delay')
+    }
+    
+    return delay
+  }, [])
   
   const enableAudio = async () => {
     try {
@@ -363,12 +410,13 @@ export function ConversationInterface({
               // Reset cleanup state to allow recording to restart
               resetCleanupState()
               
-              // Wait before starting recording to prevent audio feedback
+              // Use dynamic delay based on streaming state
+              const delay = getAudioEndDelay(false)
               setTimeout(() => {
                 if (!isEnding) {
                   startRecording()
                 }
-              }, 300)
+              }, delay)
             }
             
             setIsPlaying(true)
@@ -376,11 +424,13 @@ export function ConversationInterface({
             console.error('Error creating audio element:', error)
             // Reset cleanup state to allow recording to restart
             resetCleanupState()
+            // Use error recovery delay
+            const delay = getAudioEndDelay(true)
             setTimeout(() => {
               if (!isEnding) {
                 startRecording()
               }
-            }, 1000)
+            }, delay)
           }
         }
         break

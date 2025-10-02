@@ -142,4 +142,22 @@ export class AudioStreamingService {
   getQueueLength(): number {
     return this.audioQueue.length
   }
+
+  /**
+   * Check if there are pending chunks in the queue
+   */
+  hasPendingChunks(): boolean {
+    return this.audioQueue.length > 0
+  }
+
+  /**
+   * Check if audio is actually playing (not paused or ended)
+   */
+  isActuallyPlaying(): boolean {
+    if (!this.currentAudio) return false
+    return !this.currentAudio.paused && 
+           !this.currentAudio.ended && 
+           this.currentAudio.currentTime > 0 &&
+           this.isPlaying
+  }
 }

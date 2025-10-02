@@ -65,8 +65,6 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
       const performanceConfig = browserCompatibility.getPerformanceRecommendations()
       const audioContextOptions = browserCompatibility.getOptimalAudioContextSettings()
       
-      console.log('🎵 Setting up VAD for', capabilities.browserName, 'with optimizations:', performanceConfig)
-      
       // Create AudioContext with browser-specific settings
       audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)(audioContextOptions)
       
@@ -116,10 +114,10 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
         const average = dataArray.reduce((sum, value) => sum + value, 0) / dataArray.length
         
         // Log VAD status less frequently for debugging
-        vadLogCounter++
-        if (vadLogCounter % 50 === 0) { // Every 5 seconds instead of every second
-          console.log(`🎤 VAD - Volume: ${average.toFixed(2)}, Speaking: ${isSpeaking}, Recording: ${isRecording}`)
-        }
+        // vadLogCounter++
+        // if (vadLogCounter % 50 === 0) { // Every 5 seconds instead of every second
+        //   console.log(`🎤 VAD - Volume: ${average.toFixed(2)}, Speaking: ${isSpeaking}, Recording: ${isRecording}`)
+        // }
         
         if (average > VAD_THRESHOLD) {
           // Voice detected
@@ -133,7 +131,6 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
         } else {
           // Silence detected
           if (isSpeaking) {
-            console.log(`🎤 Silence detected! Volume: ${average.toFixed(2)}`)
             setIsSpeaking(false)
             
             // Start silence timer if not already started
