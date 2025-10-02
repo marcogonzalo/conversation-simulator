@@ -1,267 +1,271 @@
-import { Mic, Users, Target, Clock, MapPin, Building, TrendingUp, Star } from 'lucide-react'
+import { Mic, Users, Target, Clock, MapPin, Building, TrendingUp, Star, Loader2, AlertCircle } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { useEffect } from 'react'
+import { usePersonaStore } from '@/store/persona-store'
+import { humanizeAccent } from '@/utils/accentUtils'
 
 export function PersonaSelector() {
   const router = useRouter()
+  const { 
+    availablePersonas, 
+    loading, 
+    error, 
+    loadPersonas, 
+    selectPersona 
+  } = usePersonaStore()
   
-  const personas = [
-    {
-      id: "carlos_mendoza",
-      name: "Carlos Mendoza",
-      title: "CEO",
-      company: "TechStart México",
-      industry: "Tecnología",
-      location: "Mexicano (CDMX)",
-      description: "CEO de una startup tecnológica, entusiasta de la innovación pero con presupuesto limitado",
-      personality_traits: ["innovative", "friendly", "impatient"],
-      difficulty: "Principiante",
-      duration: "5-8 min",
-      avatar: "CM",
-      accent: "Caribeño (Cubano)",
-      characteristics: [
-        "Hace preguntas específicas",
-        "Busca ROI claro", 
-        "Toma decisiones rápidas"
-      ]
-    },
-    {
-      id: "maria_rodriguez", 
-      name: "María Rodríguez",
-      title: "Directora de Marketing",
-      company: "FinServ Corp",
-      industry: "Servicios Financieros",
-      location: "Peruano (Lima)",
-      description: "Directora de Marketing de una empresa mediana, escéptica pero abierta a nuevas tecnologías",
-      personality_traits: ["skeptical", "analytical", "pragmatic"],
-      difficulty: "Intermedio",
-      duration: "8-12 min",
-      avatar: "MR",
-      accent: "Peruano",
-      characteristics: [
-        "Analiza cada propuesta",
-        "Busca evidencia de resultados",
-        "Proceso de decisión lento"
-      ]
-    },
-    {
-      id: "ana_garcia",
-      name: "Ana García",
-      title: "Gerente de Ventas", 
-      company: "ManufacturaPlus",
-      industry: "Manufactura",
-      location: "Venezolano (Caracas)",
-      description: "Gerente de Ventas de una empresa tradicional, conservadora pero interesada en modernizar procesos",
-      personality_traits: ["conservative", "friendly", "pragmatic"],
-      difficulty: "Avanzado",
-      duration: "10-15 min",
-      avatar: "AG",
-      accent: "Venezolano",
-      characteristics: [
-        "Resistente al cambio",
-        "Valora la estabilidad",
-        "Necesita convencimiento"
-      ]
-    }
-  ]
-
-  const getDifficultyColor = (difficulty: string) => {
-    const colors = {
-      "Principiante": "bg-green-100 text-green-800 border-green-200",
-      "Intermedio": "bg-yellow-100 text-yellow-800 border-yellow-200", 
-      "Avanzado": "bg-orange-100 text-orange-800 border-orange-200",
-      "Experto": "bg-red-100 text-red-800 border-red-200"
-    }
-    return colors[difficulty as keyof typeof colors] || "bg-gray-100 text-gray-800 border-gray-200"
+  // Load personas on component mount
+  useEffect(() => {
+    loadPersonas()
+  }, [loadPersonas])
+  
+  // Helper function to get avatar initials
+  const getAvatarInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(word => word.charAt(0))
+      .join('')
+      .toUpperCase()
+      .slice(0, 2)
   }
-
-  const getTraitColor = (trait: string) => {
-    const colors = {
-      'innovative': 'bg-purple-100 text-purple-700',
-      'friendly': 'bg-pink-100 text-pink-700',
-      'impatient': 'bg-red-100 text-red-700',
-      'skeptical': 'bg-yellow-100 text-yellow-700',
-      'analytical': 'bg-blue-100 text-blue-700',
-      'pragmatic': 'bg-green-100 text-green-700',
-      'conservative': 'bg-gray-100 text-gray-700'
+  
+  // Helper function to get difficulty level based on personality traits
+  const getDifficultyLevel = (traits: string[]) => {
+    if (traits.includes('skeptical') || traits.includes('analytical')) {
+      return 'Intermedio'
+    } else if (traits.includes('conservative') || traits.includes('pragmatic')) {
+      return 'Avanzado'
     }
-    return colors[trait as keyof typeof colors] || 'bg-gray-100 text-gray-700'
+    return 'Principiante'
+  }
+  
+  // Helper function to get duration based on personality traits
+  const getDuration = (traits: string[]) => {
+    if (traits.includes('skeptical') || traits.includes('analytical')) {
+      return '8-12 min'
+    } else if (traits.includes('conservative') || traits.includes('pragmatic')) {
+      return '10-15 min'
+    }
+    return '5-8 min'
+  }
+  
+
+  // Helper function to get characteristics based on personality traits
+  const getCharacteristics = (traits: string[]) => {
+    const characteristics: string[] = []
+    
+    if (traits.includes('innovative')) {
+      characteristics.push('Hace preguntas específicas', 'Busca ROI claro', 'Toma decisiones rápidas')
+    }
+    if (traits.includes('skeptical') || traits.includes('analytical')) {
+      characteristics.push('Analiza cada propuesta', 'Busca evidencia de resultados', 'Proceso de decisión lento')
+    }
+    if (traits.includes('conservative') || traits.includes('pragmatic')) {
+      characteristics.push('Prefiere métodos probados', 'Cautelosa con nuevas tecnologías', 'Se enfoca en la experiencia del usuario')
+    }
+    if (traits.includes('friendly')) {
+      characteristics.push('Muy cálida y amigable', 'Muestra interés pero con precaución', 'Siempre piensa en el equipo')
+    }
+    
+    return characteristics.length > 0 ? characteristics : ['Busca soluciones prácticas', 'Valora la experiencia', 'Toma decisiones informadas']
+  }
+  
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-12 w-12 animate-spin text-blue-600 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-slate-900 mb-2">Cargando personas...</h2>
+          <p className="text-slate-600">Preparando las personalidades para tu simulación</p>
+        </div>
+      </div>
+    )
+  }
+  
+  // Error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto p-6">
+          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-slate-900 mb-2">Error al cargar personas</h2>
+          <p className="text-slate-600 mb-4">{error}</p>
+          <button 
+            onClick={() => loadPersonas()}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors"
+          >
+            Reintentar
+          </button>
+        </div>
+      </div>
+    )
+  }
+  
+  // No personas state
+  if (availablePersonas.length === 0) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
+        <div className="text-center">
+          <Users className="h-12 w-12 text-slate-400 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-slate-900 mb-2">No hay personas disponibles</h2>
+          <p className="text-slate-600">No se encontraron personas para simular</p>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <section id="personas" className="py-24 bg-gradient-to-b from-slate-50 to-white">
-      <div className="container mx-auto px-4">
-        {/* Header Section */}
-        <div className="text-center mb-20">
-          <div className="inline-flex items-center gap-2 bg-blue-100 text-blue-800 px-4 py-2 rounded-full text-sm font-medium mb-6">
-            <Users className="h-4 w-4" />
-            6 Perfiles Disponibles
-          </div>
-          
-          <h2 className="text-4xl md:text-5xl font-bold mb-6 bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">
-            Perfiles de Clientes
-          </h2>
-          <p className="text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed">
-            Selecciona un cliente para practicar
+    <div id="personas" className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+      {/* Header */}
+      <div className="container mx-auto px-4 py-12">
+        <div className="text-center mb-16">
+          <h1 className="text-4xl font-bold text-slate-900 mb-4">
+            Selecciona tu Persona
+          </h1>
+          <p className="text-xl text-slate-600 max-w-2xl mx-auto">
+            Elige con quién quieres practicar tu conversación de ventas. 
+            Cada persona tiene su propia personalidad, objetivos y desafíos únicos.
           </p>
         </div>
 
-        {/* Filter Bar */}
-        <div className="flex flex-wrap items-center justify-between mb-12 p-6 bg-white rounded-2xl shadow-lg border border-slate-200">
-          <div className="flex items-center gap-4 mb-4 sm:mb-0">
-            <span className="text-slate-700 font-medium">Filtrar por dificultad:</span>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            {["Todos", "Principiante", "Intermedio", "Avanzado", "Experto"].map((filter) => (
-              <button
-                key={filter}
-                className={`px-4 py-2 rounded-lg font-medium transition-all duration-200 ${
-                  filter === "Todos" 
-                    ? "bg-blue-600 text-white shadow-lg" 
-                    : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                }`}
+        {/* Personas Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-7xl mx-auto">
+          {availablePersonas.map((persona) => {
+            const difficulty = getDifficultyLevel(persona.personality_traits)
+            const duration = getDuration(persona.personality_traits)
+            const characteristics = getCharacteristics(persona.personality_traits)
+            const avatar = getAvatarInitials(persona.name)
+            
+            return (
+              <div 
+                key={persona.id}
+                className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105 border border-slate-200 overflow-hidden"
               >
-                {filter}
-              </button>
-            ))}
-          </div>
-        </div>
-        
-        {/* Persona Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {personas.map((persona) => (
-            <div 
-              key={persona.id} 
-              className="group relative bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:scale-105 border border-slate-200 overflow-hidden"
-            >
-              {/* Card Header */}
-              <div className="p-6 border-b border-slate-100">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center text-white font-bold text-xl shadow-lg">
-                      {persona.avatar}
+                {/* Card Header */}
+                <div className="bg-gradient-to-r from-blue-600 to-purple-600 p-6 text-white">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center text-lg font-bold">
+                      {avatar}
                     </div>
                     <div>
-                      <h3 className="text-xl font-bold text-slate-900 mb-1">{persona.name}</h3>
-                      <p className="text-slate-600 font-medium">{persona.title}</p>
+                      <h3 className="text-xl font-bold">{persona.name}</h3>
+                      <p className="text-blue-100 text-sm">{persona.metadata?.role || 'Ejecutivo'}</p>
                     </div>
                   </div>
-                  <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getDifficultyColor(persona.difficulty)}`}>
-                    {persona.difficulty}
-                  </span>
+                  
+                  <p className="text-blue-100 text-sm leading-relaxed">
+                    {persona.description}
+                  </p>
                 </div>
-                
-                <p className="text-slate-600 leading-relaxed mb-4">{persona.description}</p>
+
+                {/* Card Body */}
+                <div className="p-6 space-y-6">
+                  {/* Basic Info */}
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="flex items-center gap-2 text-slate-600">
+                      <Building className="h-4 w-4 text-blue-500" />
+                      <span>{persona.metadata?.company || 'Empresa'}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-slate-600">
+                      <MapPin className="h-4 w-4 text-blue-500" />
+                      <span>{humanizeAccent(persona.accent)}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-slate-600">
+                      <TrendingUp className="h-4 w-4 text-blue-500" />
+                      <span>{persona.metadata?.industry || 'Industria'}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-slate-600">
+                      <Users className="h-4 w-4 text-blue-500" />
+                      <span>{persona.metadata?.team_size || 'Equipo'}</span>
+                    </div>
+                  </div>
+
+                  {/* Difficulty and Duration */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Star className="h-4 w-4 text-yellow-500" />
+                      <span className="text-sm font-medium text-slate-700">{difficulty}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4 text-green-500" />
+                      <span className="text-sm font-medium text-slate-700">{duration}</span>
+                    </div>
+                  </div>
+
+                  {/* Characteristics */}
+                  <div>
+                    <h4 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
+                      <Target className="h-4 w-4 text-blue-500" />
+                      Características:
+                    </h4>
+                    <ul className="space-y-2">
+                      {characteristics.map((char, index) => (
+                        <li key={index} className="flex items-start gap-2 text-sm text-slate-600">
+                          <span className="text-blue-500 mt-1">•</span>
+                          <span>{char}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {/* Action Button */}
+                  <button 
+                    onClick={() => {
+                      selectPersona(persona)
+                      // Generate a random conversation ID for demo
+                      const conversationId = `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+                      router.push(`/conversation/${conversationId}`)
+                    }}
+                    className="w-full group/btn bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-3 px-6 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+                  >
+                    <Mic className="h-5 w-5 group-hover/btn:rotate-12 transition-transform" />
+                    Iniciar Simulación
+                  </button>
+                </div>
               </div>
-
-              {/* Card Content */}
-              <div className="p-6 space-y-6">
-                {/* Company Info */}
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3 text-slate-600">
-                    <Building className="h-4 w-4 text-slate-400" />
-                    <span className="text-sm font-medium">{persona.company}</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-slate-600">
-                    <TrendingUp className="h-4 w-4 text-slate-400" />
-                    <span className="text-sm font-medium">{persona.industry}</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-slate-600">
-                    <Users className="h-4 w-4 text-slate-400" />
-                    <span className="text-sm font-medium">{persona.personality_traits.join(", ")}</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-slate-600">
-                    <MapPin className="h-4 w-4 text-slate-400" />
-                    <span className="text-sm font-medium">{persona.location}</span>
-                  </div>
-                  <div className="flex items-center gap-3 text-slate-600">
-                    <Clock className="h-4 w-4 text-slate-400" />
-                    <span className="text-sm font-medium">{persona.duration}</span>
-                  </div>
-                </div>
-
-                {/* Characteristics */}
-                <div>
-                  <h4 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
-                    <Target className="h-4 w-4 text-blue-500" />
-                    Características:
-                  </h4>
-                  <ul className="space-y-2">
-                    {persona.characteristics.map((char, index) => (
-                      <li key={index} className="flex items-start gap-2 text-sm text-slate-600">
-                        <span className="text-blue-500 mt-1">•</span>
-                        <span>{char}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                {/* Action Button */}
-                <button 
-                  onClick={() => {
-                    // Generate a random conversation ID for demo
-                    const conversationId = `conv_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
-                    router.push(`/conversation/${conversationId}`)
-                  }}
-                  className="w-full group/btn bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white py-3 px-6 rounded-xl font-medium transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
-                >
-                  <Mic className="h-5 w-5 group-hover/btn:rotate-12 transition-transform" />
-                  Iniciar Simulación
-                </button>
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
 
         {/* Footer Info */}
         <div className="mt-20 grid grid-cols-1 lg:grid-cols-2 gap-12">
-          <div className="bg-white rounded-2xl p-8 shadow-lg border border-slate-200">
-            <h3 className="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-3">
-              <div className="w-8 h-8 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                <Star className="h-5 w-5 text-white" />
-              </div>
-              Niveles de Dificultad
+          <div className="text-center lg:text-left">
+            <h3 className="text-2xl font-bold text-slate-900 mb-4">
+              ¿Cómo funciona la simulación?
             </h3>
-            <div className="space-y-4">
-              {[
-                { level: "Principiante", color: "green", desc: "Clientes receptivos y amigables" },
-                { level: "Intermedio", color: "yellow", desc: "Algunos desafíos y objeciones" },
-                { level: "Avanzado", color: "orange", desc: "Clientes exigentes con múltiples objeciones" },
-                { level: "Experto", color: "red", desc: "Máximo desafío, clientes muy difíciles" }
-              ].map((item) => (
-                <div key={item.level} className="flex items-center gap-3">
-                  <div className={`w-3 h-3 rounded-full bg-${item.color}-500`}></div>
-                  <div>
-                    <span className="font-medium text-slate-900">{item.level}</span>
-                    <p className="text-sm text-slate-600">{item.desc}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <p className="text-slate-600 leading-relaxed">
+              Cada persona está diseñada con personalidades únicas, objetivos específicos y 
+              desafíos reales que encontrarás en el mundo de las ventas. La IA asumirá su 
+              identidad y responderá de manera auténtica a tus preguntas y propuestas.
+            </p>
           </div>
-
-          <div className="bg-white rounded-2xl p-8 shadow-lg border border-slate-200">
-            <h3 className="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-3">
-              <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-600 rounded-lg flex items-center justify-center">
-                <Target className="h-5 w-5 text-white" />
-              </div>
-              Características Especiales
+          
+          <div className="text-center lg:text-left">
+            <h3 className="text-2xl font-bold text-slate-900 mb-4">
+              Consejos para el éxito
             </h3>
-            <ul className="space-y-3">
-              {[
-                "Acentos Regionales: Inmersión total con voces auténticas",
-                "Personalidades Únicas: Cada cliente tiene comportamientos específicos", 
-                "Contexto Industrial: Escenarios realistas por sector",
-                "Feedback Personalizado: Análisis específico por perfil"
-              ].map((feature, index) => (
-                <li key={index} className="flex items-start gap-3 text-slate-600">
-                  <span className="text-purple-500 mt-1">•</span>
-                  <span>{feature}</span>
-                </li>
-              ))}
+            <ul className="space-y-2 text-slate-600">
+              <li className="flex items-center gap-2">
+                <span className="text-blue-500">•</span>
+                <span>Escucha activamente las respuestas</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="text-blue-500">•</span>
+                <span>Adapta tu enfoque a su personalidad</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="text-blue-500">•</span>
+                <span>Haz preguntas abiertas y específicas</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="text-blue-500">•</span>
+                <span>Enfócate en sus objetivos y desafíos</span>
+              </li>
             </ul>
           </div>
         </div>
       </div>
-    </section>
+    </div>
   )
 }

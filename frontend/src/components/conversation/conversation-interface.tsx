@@ -14,19 +14,15 @@ import { useConversation, Message } from '@/hooks/useConversation'
 import { AudioService } from '@/services/audioService'
 import { AudioStreamingService } from '@/services/audioStreamingService'
 import { processTextChunk } from '@/utils/textChunkProcessor'
+import { Persona } from '@/types/persona'
+import { humanizeAccent } from '@/utils/accentUtils'
 
 interface ConversationInterfaceProps {
-  conversationId?: string
+  conversationId?: string | Promise<string>
   personaId?: string
   personaName?: string
   personaAccent?: string
-  persona?: {
-    id: string
-    name: string
-    description: string
-    accent: string
-    voice: string
-  }
+  persona?: Persona
 }
 
 export function ConversationInterface({ 
@@ -37,10 +33,22 @@ export function ConversationInterface({
   persona 
 }: ConversationInterfaceProps) {
   
+  // State for resolved conversation ID
+  const [resolvedConversationId, setResolvedConversationId] = useState<string>('')
+  
   // Use persona prop if provided, otherwise use individual props
   const actualPersonaName = persona?.name || personaName || 'Test Persona'
   const actualPersonaId = persona?.id || personaId || 'test-persona'
   const actualPersonaAccent = persona?.accent || personaAccent || 'neutral'
+  
+  // Resolve conversation ID if it's a Promise
+  useEffect(() => {
+    if (typeof conversationId === 'string') {
+      setResolvedConversationId(conversationId)
+    } else if (conversationId instanceof Promise) {
+      conversationId.then(id => setResolvedConversationId(id))
+    }
+  }, [conversationId])
   // UI State
   const [callStatus, setCallStatus] = useState<'idle' | 'connecting' | 'connected' | 'disconnected'>('idle')
   const [callDuration, setCallDuration] = useState(0)
@@ -548,7 +556,7 @@ export function ConversationInterface({
             </div>
             <div>
               <h2 className="text-xl font-bold text-white">{actualPersonaName}</h2>
-              <p className="text-sm font-medium text-white/80">{actualPersonaAccent}</p>
+              <p className="text-sm font-medium text-white/80">{humanizeAccent(actualPersonaAccent)}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
