@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from src.api.routes.conversation import router as conversation_router
 from src.api.routes.persona import router as persona_router
 from src.api.routes.analysis import router as analysis_router
+from src.api.routes.conversation_analysis import router as conversation_analysis_router
 from src.api.routes.websocket import router as websocket_router
 from src.api.routes.audio import router as audio_router
 from src.api.routes.prompt import router as prompt_router
@@ -45,6 +46,12 @@ def create_app(lifespan: Callable = None) -> FastAPI:
         analysis_router,
         prefix="/api/v1/analyses",
         tags=["analyses"]
+    )
+    
+    app.include_router(
+        conversation_analysis_router,
+        prefix="/api/v1/conversation-analysis",
+        tags=["conversation-analysis"]
     )
     
     app.include_router(

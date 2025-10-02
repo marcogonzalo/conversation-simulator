@@ -129,5 +129,16 @@ async def send_persona_info(conversation_id: str, name: str, accent: str):
     }
     await manager.send_message(conversation_id_str, message)
 
+async def send_analysis_result(conversation_id: str, analysis_data: dict):
+    """Send conversation analysis result to client."""
+    conversation_id_str = str(conversation_id)
+    message = {
+        "type": "analysis_result",
+        "analysis": analysis_data.get("analysis", ""),
+        "analysis_id": analysis_data.get("analysis_id", ""),
+        "conversation_id": conversation_id_str
+    }
+    await manager.send_message(conversation_id_str, message)
+
 
 

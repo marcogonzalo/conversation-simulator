@@ -18,7 +18,7 @@ from src.persona.domain.repositories.persona_repository import PersonaRepository
 from src.persona.infrastructure.repositories.yaml_persona_repository import YAMLPersonaRepository
 from src.shared.infrastructure.external_apis.api_config import APIConfig
 from src.shared.infrastructure.messaging.event_bus import event_bus
-from src.api.routes.websocket_helpers import manager, send_error, send_pong, send_transcribed_text, send_processing_status, send_text_response, send_audio_response, send_persona_info
+from src.api.routes.websocket_helpers import manager, send_error, send_pong, send_transcribed_text, send_processing_status, send_text_response, send_audio_response, send_persona_info, send_analysis_result
 
 logger = logging.getLogger(__name__)
 
@@ -312,6 +312,14 @@ async def handle_end_voice_conversation(
             await send_error(conversation_id, result["error"])
         else:
             logger.info(f"Voice conversation ended for {conversation_id}")
+            
+            # Send analysis if available
+            if "analysis" in result and result["analysis"]:
+                analysis_data = result["analysis"]
+                if "analysis" in analysis_data:
+                    await send_analysis_result(conversation_id, analysis_data)
+                else:
+                    logger.warning(f"No analysis content found for conversation {conversation_id}")
 
     except Exception as e:
         logger.error(f"Error ending voice conversation: {e}", exc_info=True)

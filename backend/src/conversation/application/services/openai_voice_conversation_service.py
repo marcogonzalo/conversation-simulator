@@ -430,7 +430,7 @@ class OpenAIVoiceConversationService:
             return {"success": False, "error": f"Unexpected error: {str(e)}"}
     
     async def end_voice_conversation(self, conversation_id: str) -> Dict[str, Any]:
-        """End a voice conversation."""
+        """End a voice conversation and trigger analysis."""
         logger.info(f"[{conversation_id}] - Ending voice conversation")
         
         try:
@@ -440,12 +440,58 @@ class OpenAIVoiceConversationService:
             # Remove from active conversations
             self.active_conversations.pop(conversation_id, None)
             
+            # Trigger conversation analysis
+            analysis_result = await self._trigger_conversation_analysis(conversation_id)
+            
             logger.info(f"[{conversation_id}] - Voice conversation ended successfully")
-            return {"success": True}
+            return {
+                "success": True,
+                "analysis": analysis_result
+            }
             
         except Exception as e:
             logger.error(f"[{conversation_id}] - Error ending voice conversation: {e}", exc_info=True)
             return {"success": False, "error": f"Unexpected error: {str(e)}"}
+    
+    async def _trigger_conversation_analysis(self, conversation_id: str) -> Dict[str, Any]:
+        """Trigger conversation analysis after ending the call."""
+        try:
+            # Get conversation data
+            conversation = await self.conversation_service.get_conversation(conversation_id)
+            if not conversation.success or not conversation.conversation:
+                logger.error(f"[{conversation_id}] - Could not retrieve conversation for analysis")
+                return {"error": "Could not retrieve conversation data"}
+            
+            # Prepare conversation data for analysis
+            conversation_data = {
+                "conversation_id": conversation_id,
+                "messages": [
+                    {
+                        "role": msg.role.value if hasattr(msg.role, 'value') else str(msg.role),
+                        "content": msg.content.text if hasattr(msg.content, 'text') else str(msg.content),
+                        "timestamp": msg.timestamp.isoformat() if msg.timestamp else ""
+                    }
+                    for msg in conversation.conversation.messages
+                ],
+                "duration_seconds": conversation.conversation.metadata.get('duration_seconds', 0),
+                "persona_name": conversation.conversation.metadata.get('persona_name', 'Cliente'),
+                "metadata": conversation.conversation.metadata
+            }
+            
+            # Call analysis service
+            from src.analysis.infrastructure.services.conversation_analysis_service import ConversationAnalysisService
+            analysis_service = ConversationAnalysisService()
+            analysis = await analysis_service.analyze_conversation(conversation_data)
+            
+            logger.info(f"[{conversation_id}] - Analysis completed successfully")
+            return {
+                "analysis": analysis,
+                "conversation_id": conversation_id
+            }
+            
+        except Exception as e:
+            logger.error(f"[{conversation_id}] - Error in conversation analysis: {e}")
+            return {"error": f"Analysis failed: {str(e)}"}
     
     async def is_conversation_active(self, conversation_id: str) -> bool:
         """Check if a voice conversation is active."""

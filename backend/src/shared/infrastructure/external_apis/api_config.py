@@ -26,6 +26,7 @@ class APIConfig:
         # AI settings (for fallback text conversations)
         self.ai_provider = os.getenv("AI_PROVIDER", "openai")
         self.ai_model = os.getenv("AI_MODEL", "gpt-4o-mini")
+        self.openai_model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")  # For OpenAI service factory
         self.ai_temperature = float(os.getenv("AI_TEMPERATURE", "0.7"))
         self.ai_max_tokens = int(os.getenv("AI_MAX_TOKENS", "1000"))
         

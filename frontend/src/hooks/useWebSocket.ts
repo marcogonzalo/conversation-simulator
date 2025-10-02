@@ -5,9 +5,10 @@ interface UseWebSocketProps {
   onMessage: (data: any) => void
   onConnect: () => void
   onDisconnect: () => void
+  onAnalysis?: (analysis: any) => void
 }
 
-export function useWebSocket({ onMessage, onConnect, onDisconnect }: UseWebSocketProps) {
+export function useWebSocket({ onMessage, onConnect, onDisconnect, onAnalysis }: UseWebSocketProps) {
   const [isConnected, setIsConnected] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [realConversationId, setRealConversationId] = useState<string | null>(null)
@@ -64,6 +65,20 @@ export function useWebSocket({ onMessage, onConnect, onDisconnect }: UseWebSocke
           // Ignore audio messages if conversation is ending
           if (isEnding && data.type === 'audio') {
             console.log('📨 Ignoring audio message during conversation end')
+            return
+          }
+          
+          // Handle analysis result
+          if (data.type === 'analysis_result' && onAnalysis) {
+            console.log('📊 Received analysis result:', {
+              hasAnalysis: !!data.analysis,
+              hasAnalysisId: !!data.analysis_id,
+              analysisLength: data.analysis ? data.analysis.length : 0
+            })
+            onAnalysis({
+              analysis: data.analysis,
+              analysis_id: data.analysis_id
+            })
             return
           }
           

@@ -142,9 +142,15 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
             }
           }
           
+          // If waiting for response, stop VAD processing to prevent audio overlap
+          if (isWaitingForResponse) {
+            console.log('🎤 Waiting for AI response, pausing VAD processing')
+            return
+          }
+          
           // Check if we've had enough silence to stop recording
-          // Only if we're not waiting for response and we've detected voice before
-          if (!isWaitingForResponse && silenceStartTimeRef.current !== null && hasDetectedVoiceRef.current) {
+          // Only if we've detected voice before
+          if (silenceStartTimeRef.current !== null && hasDetectedVoiceRef.current) {
             console.log(`🎤 Checking silence timer - isWaitingForResponse: ${isWaitingForResponse}, silenceStartTime: ${silenceStartTimeRef.current}, hasDetectedVoice: ${hasDetectedVoiceRef.current}`)
             const silenceDuration = now - silenceStartTimeRef.current
             
@@ -177,6 +183,17 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
       })
     }
   }, [isRecording, setupVoiceActivityDetection])
+  
+  // Reset VAD state when AI starts responding
+  useEffect(() => {
+    if (isWaitingForResponse) {
+      console.log('🎤 AI responding, resetting VAD state')
+      hasDetectedVoiceRef.current = false
+      silenceStartTimeRef.current = null
+      lastVoiceTimeRef.current = 0
+      isProcessingStopRef.current = false
+    }
+  }, [isWaitingForResponse])
 
 
   const startRecording = useCallback(async () => {

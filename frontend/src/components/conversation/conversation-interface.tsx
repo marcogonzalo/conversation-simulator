@@ -51,6 +51,7 @@ export function ConversationInterface({
   const [audioEnabled, setAudioEnabled] = useState(false)
   const [canEndCall, setCanEndCall] = useState(true)
   
+  
   // Audio streaming service
   const audioStreamingRef = useRef<AudioStreamingService | null>(null)
     
@@ -196,6 +197,14 @@ export function ConversationInterface({
     }
   }
 
+  const handleAnalysis = (analysisData: any) => {
+    // Analysis received and stored on backend
+    console.log('📊 Analysis generated and saved:', {
+      analysis_id: analysisData?.analysis_id,
+      conversation_id: analysisData?.conversation_id
+    })
+  }
+
   const handleWebSocketMessage = (data: any) => {
     // Ignore audio messages if conversation is ending or disconnected
     if ((isEnding || callStatus === 'disconnected') && data.type === 'audio') {
@@ -296,11 +305,14 @@ export function ConversationInterface({
       case 'audio_chunk':
         if (data.audio_data && audioStreamingRef.current) {
           audioStreamingRef.current.addAudioChunk(data.audio_data)
+          // Reset waiting state when AI starts responding with audio
+          setIsWaitingForResponse(false)
         }
         break
         
       case 'text_response':
         addMessage({ content: data.content, sender: 'ai', isAudio: false })
+        setIsWaitingForResponse(false) // Reset waiting state when AI responds
         break
         
       case 'audio_response':
@@ -376,6 +388,13 @@ export function ConversationInterface({
         sendMessage({ type: 'pong' })
         break
         
+      case 'error':
+        console.error('WebSocket error:', data.error)
+        addMessage({ content: `Error: ${data.error}`, sender: 'ai', isAudio: false })
+        // Reset waiting state on error
+        setIsWaitingForResponse(false)
+        break
+        
       default:
         console.log('Unknown message type:', data.type)
     }
@@ -395,7 +414,8 @@ export function ConversationInterface({
   const { isConnected, isLoading, realConversationId, connect, sendMessage, disconnect } = useWebSocket({
     onMessage: handleWebSocketMessage,
     onConnect: handleConnect,
-    onDisconnect: handleDisconnect
+    onDisconnect: handleDisconnect,
+    onAnalysis: handleAnalysis
   })
 
   const { permissionStatus, isRequesting, error, requestPermission } = useMicrophonePermission({
