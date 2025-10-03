@@ -2,7 +2,9 @@
 Working tests that match the actual implementation exactly.
 """
 import pytest
+import asyncio
 from unittest.mock import Mock, patch, AsyncMock
+from datetime import datetime
 from src.conversation.domain.entities.message import MessageRole
 
 
@@ -49,8 +51,12 @@ class TestWorkingServices:
                 
                 assert result is True
                 mock_convert.assert_called_once_with(audio_data)
-                # Should be called at least once
-                assert service.websocket.send.call_count >= 1
+                
+                # Wait for audio processing to complete
+                await asyncio.sleep(0.1)
+                
+                # Audio should be accumulated in buffer
+                assert len(service._audio_buffer) > 0
 
     # @pytest.mark.asyncio
     # async def test_openai_voice_service_disconnect(self):
@@ -103,8 +109,11 @@ class TestWorkingServices:
             
             await service._handle_event(event_data)
             
-            # Should call the callback with role parameter
-            mock_transcript_callback.assert_called_once_with("Hello world", MessageRole.ASSISTANT.value)
+            # Should call the callback with role parameter and timestamp
+            call_args = mock_transcript_callback.call_args[0]
+            assert call_args[0] == "Hello world"
+            assert call_args[1] == MessageRole.ASSISTANT.value
+            assert isinstance(call_args[2], datetime)
 
     @pytest.mark.asyncio
     async def test_handle_event_error_with_async_callbacks(self):

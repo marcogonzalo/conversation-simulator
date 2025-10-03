@@ -13,6 +13,8 @@ from src.conversation.domain.entities.conversation import Conversation
 from src.conversation.domain.entities.message import MessageRole
 from src.conversation.domain.value_objects.message_content import MessageContent
 from src.conversation.application.services.conversation_application_service import ConversationApplicationService
+from src.conversation.domain.services.message_processing_service import MessageProcessingService
+from src.conversation.infrastructure.repositories.enhanced_conversation_repository import EnhancedConversationRepository
 from src.persona.domain.entities.persona import Persona
 from src.persona.domain.repositories.persona_repository import PersonaRepository
 from src.persona.domain.value_objects.persona_id import PersonaId
@@ -29,7 +31,8 @@ class OpenAIVoiceConversationService:
         self,
         conversation_service: ConversationApplicationService,
         voice_service: OpenAIVoiceApplicationService,
-        persona_repository: PersonaRepository
+        persona_repository: PersonaRepository,
+        enhanced_repository: Optional[EnhancedConversationRepository] = None
     ):
         self.conversation_service = conversation_service
         self.voice_service = voice_service
@@ -42,6 +45,12 @@ class OpenAIVoiceConversationService:
         self.audio_buffer: Dict[str, bytes] = {}
         # Track if streaming was used for each conversation
         self.streaming_used: Dict[str, bool] = {}
+        # Enhanced message processing
+        self.enhanced_repository = enhanced_repository
+        self.message_processor = MessageProcessingService()
+        # Chunk aggregation for original system
+        self._pending_chunks: Dict[str, Dict[str, str]] = {}
+        self._last_chunk_time: Dict[str, datetime] = {}
         
     def _detect_silence_segments(self, pcm_data: bytes, sample_rate: int = 24000, 
                                 silence_threshold: float = 0.005, min_silence_duration: float = 0.1) -> List[Tuple[int, int]]:
@@ -327,27 +336,53 @@ class OpenAIVoiceConversationService:
                     logger.error(f"[{conversation_id}] - Error handling audio chunk: {e}", exc_info=True)
             
             async def on_transcript(transcript: str, role: str = MessageRole.ASSISTANT.value, event_timestamp: Optional[datetime] = None):
-                """Handle transcript from OpenAI."""
+                """Handle transcript from OpenAI with chunk processing."""
                 try:
                     if transcript.strip():
                         # Use event timestamp if provided, otherwise use current time
                         message_timestamp = event_timestamp or datetime.utcnow()
                         
-                        # Send transcript immediately to frontend (non-blocking)
-                        await send_transcribed_text(conversation_id, transcript, role)
-                        
-                        # Save message to conversation (async, non-blocking)
-                        # Don't await this to avoid blocking audio processing
-                        asyncio.create_task(
-                            self.conversation_service.send_message(
-                                conversation_id=str(conversation_id),
-                                role=role,
-                                content=transcript,
-                                audio_url=None,
-                                metadata={"event_timestamp": message_timestamp.isoformat()},
-                                message_timestamp=message_timestamp
+                        # Process chunk with enhanced message processing
+                        if False:  # Temporarily disabled - enhanced_repository:
+                            try:
+                                from src.conversation.domain.value_objects.conversation_id import ConversationId
+                                conversation_id_obj = ConversationId(conversation_id)
+                                
+                                # Process text chunk using enhanced system
+                                enhanced_message = self.message_processor.process_text_chunk(
+                                    conversation_id=conversation_id_obj,
+                                    role=role,
+                                    content=transcript,
+                                    is_final=False,  # Assume chunks are not final initially
+                                    confidence=None
+                                )
+                                
+                                # Save to enhanced repository
+                                await self.enhanced_repository.add_enhanced_message(conversation_id_obj, enhanced_message)
+                                
+                                # Send processed content to frontend
+                                processed_content = enhanced_message.get_display_content()
+                                await send_transcribed_text(conversation_id, processed_content, role)
+                                
+                            except Exception as e:
+                                logger.error(f"[{conversation_id}] Error processing enhanced chunk: {e}")
+                                # Fallback to original method
+                                await send_transcribed_text(conversation_id, transcript, role)
+                                asyncio.create_task(
+                                    self.conversation_service.send_message(
+                                        conversation_id=str(conversation_id),
+                                        role=role,
+                                        content=transcript,
+                                        audio_url=None,
+                                        metadata={"event_timestamp": message_timestamp.isoformat()},
+                                        message_timestamp=message_timestamp
+                                    )
+                                )
+                        else:
+                            # Original method with chunk aggregation
+                            await self._handle_chunk_with_aggregation(
+                                conversation_id, transcript, role, message_timestamp
                             )
-                        )
                 except Exception as e:
                     logger.error(f"[{conversation_id}] - Error handling transcript: {e}")
             
@@ -439,6 +474,9 @@ class OpenAIVoiceConversationService:
         logger.info(f"[{conversation_id}] - Ending voice conversation")
         
         try:
+            # Save any pending chunks before ending
+            await self._save_pending_chunks(conversation_id)
+            
             # End voice service conversation
             await self.voice_service.end_conversation()
             
@@ -458,6 +496,113 @@ class OpenAIVoiceConversationService:
             logger.error(f"[{conversation_id}] - Error ending voice conversation: {e}", exc_info=True)
             return {"success": False, "error": f"Unexpected error: {str(e)}"}
     
+    async def _handle_chunk_with_aggregation(
+        self, 
+        conversation_id: str, 
+        transcript: str, 
+        role: str, 
+        message_timestamp: datetime
+    ) -> None:
+        """Handle text chunks with aggregation to avoid multiple messages."""
+        # Create a key for this conversation and role
+        chunk_key = f"{conversation_id}_{role}"
+        current_time = datetime.utcnow()
+        
+        # Check if this is a new message (gap of more than 3 seconds since last chunk)
+        is_new_message = False
+        if chunk_key in self._last_chunk_time:
+            time_diff = (current_time - self._last_chunk_time[chunk_key]).total_seconds()
+            if time_diff > 3.0:  # More than 3 seconds gap = new message
+                is_new_message = True
+        
+        # If it's a new message, save the previous one and start fresh
+        if is_new_message and chunk_key in self._pending_chunks:
+            pending = self._pending_chunks[chunk_key]
+            content = pending["content"].strip()
+            if content:
+                await self.conversation_service.send_message(
+                    conversation_id=str(conversation_id),
+                    role=role,
+                    content=content,
+                    audio_url=None,
+                    metadata={"event_timestamp": pending["timestamp"].isoformat()},
+                    message_timestamp=pending["timestamp"]
+                )
+            # Remove the old pending message
+            del self._pending_chunks[chunk_key]
+        
+        # Initialize or update pending chunk
+        if chunk_key not in self._pending_chunks:
+            self._pending_chunks[chunk_key] = {
+                "content": "",
+                "timestamp": message_timestamp,
+                "last_update": current_time
+            }
+        
+        # Add chunk to pending content
+        pending = self._pending_chunks[chunk_key]
+        pending["content"] += transcript
+        pending["last_update"] = current_time
+        self._last_chunk_time[chunk_key] = current_time
+        
+        # Send only the new chunk to frontend (not the accumulated content)
+        await send_transcribed_text(conversation_id, transcript, role)
+        
+        # Schedule message save after a delay to allow for more chunks
+        asyncio.create_task(self._schedule_message_save(chunk_key, conversation_id, role, pending))
+    
+    async def _schedule_message_save(
+        self, 
+        chunk_key: str, 
+        conversation_id: str, 
+        role: str, 
+        pending: Dict[str, Any]
+    ) -> None:
+        """Schedule message save with a delay to aggregate chunks."""
+        # Wait 2 seconds for more chunks to arrive
+        await asyncio.sleep(2.0)
+        
+        # Check if this chunk is still the latest
+        if chunk_key in self._pending_chunks and self._pending_chunks[chunk_key] == pending:
+            # Save the aggregated message
+            content = pending["content"].strip()
+            if content:
+                await self.conversation_service.send_message(
+                    conversation_id=str(conversation_id),
+                    role=role,
+                    content=content,
+                    audio_url=None,
+                    metadata={"event_timestamp": pending["timestamp"].isoformat()},
+                    message_timestamp=pending["timestamp"]
+                )
+            
+            # Remove from pending
+            if chunk_key in self._pending_chunks:
+                del self._pending_chunks[chunk_key]
+    
+    async def _save_pending_chunks(self, conversation_id: str) -> None:
+        """Save any pending chunks when conversation ends."""
+        keys_to_remove = []
+        
+        for chunk_key, pending in self._pending_chunks.items():
+            if chunk_key.startswith(conversation_id):
+                content = pending["content"].strip()
+                if content:
+                    role = chunk_key.split("_")[-1]  # Extract role from key
+                    await self.conversation_service.send_message(
+                        conversation_id=str(conversation_id),
+                        role=role,
+                        content=content,
+                        audio_url=None,
+                        metadata={"event_timestamp": pending["timestamp"].isoformat()},
+                        message_timestamp=pending["timestamp"]
+                    )
+                keys_to_remove.append(chunk_key)
+        
+        # Remove processed chunks
+        for key in keys_to_remove:
+            del self._pending_chunks[key]
+
     async def _trigger_conversation_analysis(self, conversation_id: str) -> Dict[str, Any]:
         """Trigger conversation analysis after ending the call."""
         try:

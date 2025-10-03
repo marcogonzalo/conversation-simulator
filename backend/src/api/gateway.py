@@ -13,6 +13,7 @@ from src.api.routes.conversation_analysis import router as conversation_analysis
 from src.api.routes.websocket import router as websocket_router
 from src.api.routes.audio import router as audio_router
 from src.api.routes.prompt import router as prompt_router
+from src.api.routes.enhanced_conversation import router as enhanced_conversation_router
 
 logger = logging.getLogger(__name__)
 
@@ -70,6 +71,12 @@ def create_app(lifespan: Callable = None) -> FastAPI:
         prompt_router,
         prefix="/api/v1",
         tags=["prompts"]
+    )
+    
+    app.include_router(
+        enhanced_conversation_router,
+        prefix="/api/v1",
+        tags=["enhanced-conversations"]
     )
     
     # Health check endpoint

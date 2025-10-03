@@ -12,6 +12,7 @@ from src.conversation.application.services.openai_voice_conversation_service imp
 from src.conversation.domain.repositories.conversation_repository import ConversationRepository
 from src.conversation.domain.services.conversation_domain_service import ConversationDomainService
 from src.conversation.infrastructure.repositories.sql_conversation_repository import SQLConversationRepository
+from src.conversation.infrastructure.repositories.enhanced_conversation_repository import EnhancedConversationRepository
 from src.audio.application.services.openai_voice_application_service import OpenAIVoiceApplicationService
 from src.audio.infrastructure.repositories.memory_audio_repository import MemoryAudioRepository
 from src.persona.domain.repositories.persona_repository import PersonaRepository
@@ -53,16 +54,22 @@ def get_persona_repository() -> PersonaRepository:
     """Get persona repository instance."""
     return YAMLPersonaRepository()
 
+def get_enhanced_conversation_repository() -> EnhancedConversationRepository:
+    """Get enhanced conversation repository instance."""
+    return None  # Temporarily disabled
+
 def get_voice_conversation_service(
     conversation_service: ConversationApplicationService = Depends(get_conversation_application_service),
     voice_service: OpenAIVoiceApplicationService = Depends(get_voice_application_service),
-    persona_repo: PersonaRepository = Depends(get_persona_repository)
+    persona_repo: PersonaRepository = Depends(get_persona_repository),
+    enhanced_repo: EnhancedConversationRepository = Depends(get_enhanced_conversation_repository)
 ) -> OpenAIVoiceConversationService:
     """Get OpenAI voice conversation service instance."""
     return OpenAIVoiceConversationService(
         conversation_service=conversation_service,
         voice_service=voice_service,
-        persona_repository=persona_repo
+        persona_repository=persona_repo,
+        enhanced_repository=enhanced_repo
     )
 
 # WebSocket connection manager
