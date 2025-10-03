@@ -51,7 +51,7 @@ class AIConversationService:
             # Build conversation history
             conversation_history = []
             for message in conversation.messages[-10:]:  # Last 10 messages
-                role = "user" if message.role == MessageRole.USER else "assistant"
+                role = MessageRole.USER.value if message.role == MessageRole.USER else MessageRole.ASSISTANT.value
                 conversation_history.append({
                     "role": role,
                     "content": message.content.text
@@ -228,7 +228,7 @@ class AIConversationService:
     async def get_conversation_summary(self, conversation: Conversation) -> Dict[str, Any]:
         """Get conversation summary for analysis."""
         user_messages = [m for m in conversation.messages if m.role == MessageRole.USER]
-        assistant_messages = [m for m in conversation.messages if m.role == MessageRole.ASSISTANT]
+        ai_messages = [m for m in conversation.messages if m.role == MessageRole.ASSISTANT]
         
         return {
             "conversation_id": str(conversation.id.value),
@@ -236,7 +236,7 @@ class AIConversationService:
             "duration_seconds": conversation.duration_seconds,
             "total_messages": len(conversation.messages),
             "user_messages": len(user_messages),
-            "assistant_messages": len(assistant_messages),
+            "ai_messages": len(ai_messages),
             "started_at": conversation.started_at.isoformat() if conversation.started_at else None,
             "ended_at": conversation.ended_at.isoformat() if conversation.ended_at else None,
             "status": conversation.status.value

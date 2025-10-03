@@ -3,6 +3,7 @@ Working tests that match the actual implementation exactly.
 """
 import pytest
 from unittest.mock import Mock, patch, AsyncMock
+from src.conversation.domain.entities.message import MessageRole
 
 
 @pytest.mark.unit
@@ -102,8 +103,8 @@ class TestWorkingServices:
             
             await service._handle_event(event_data)
             
-            # Should call the callback with "AI: " prefix
-            mock_transcript_callback.assert_called_once_with("AI: Hello world")
+            # Should call the callback with role parameter
+            mock_transcript_callback.assert_called_once_with("Hello world", MessageRole.ASSISTANT.value)
 
     @pytest.mark.asyncio
     async def test_handle_event_error_with_async_callbacks(self):

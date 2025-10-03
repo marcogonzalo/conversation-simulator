@@ -7,7 +7,7 @@ from uuid import uuid4
 from src.conversation.application.commands.start_conversation import StartConversationCommand, StartConversationResult
 from src.conversation.application.commands.send_message import SendMessageCommand, SendMessageResult
 from src.conversation.domain.entities.conversation import Conversation, ConversationStatus
-from src.conversation.domain.entities.message import Message
+from src.conversation.domain.entities.message import Message, MessageRole
 from src.conversation.domain.value_objects.conversation_id import ConversationId
 from src.conversation.domain.value_objects.message_content import MessageContent
 from src.conversation.domain.services.conversation_domain_service import ConversationDomainService
@@ -109,11 +109,13 @@ class SendMessageCommandHandler:
             message = Message.create_user_message(
                 conversation_id=command.conversation_id.value,
                 content=command.content,
-                audio_url=command.audio_url
-            ) if command.role.value == "user" else Message.create_assistant_message(
+                audio_url=command.audio_url,
+                timestamp=command.message_timestamp
+            ) if command.role.value == MessageRole.USER.value else Message.create_assistant_message(
                 conversation_id=command.conversation_id.value,
                 content=command.content,
-                audio_url=command.audio_url
+                audio_url=command.audio_url,
+                timestamp=command.message_timestamp
             )
             
             # Add message to conversation

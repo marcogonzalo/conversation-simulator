@@ -15,6 +15,7 @@ import struct
 from openai import AsyncOpenAI
 from ....shared.infrastructure.external_apis.api_config import APIConfig
 from ....shared.application.prompt_service import PromptService
+from src.conversation.domain.entities.message import MessageRole
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +40,7 @@ class OpenAIVoiceService:
         
         # Audio accumulation system
         self._audio_buffer: List[bytes] = []
+        self._user_audio_timestamp: Optional[datetime] = None
         
         # Prompt service for dynamic prompts
         self.prompt_service = PromptService()
@@ -153,6 +155,7 @@ class OpenAIVoiceService:
             self._audio_buffer.clear()
             self._audio_timer = None
             self._is_processing_audio = False
+            self._user_audio_timestamp = None
     
     async def send_audio(self, audio_data: bytes) -> bool:
         """Send audio data to OpenAI using accumulation system to prevent overlapping responses."""
@@ -161,6 +164,12 @@ class OpenAIVoiceService:
             return False
         
         try:
+            # Capture timestamp when user audio arrives at server
+            user_audio_timestamp = datetime.utcnow()
+            
+            # Store timestamp for later use in transcript processing
+            self._user_audio_timestamp = user_audio_timestamp
+            
             # Convert WebM/Opus audio to PCM16 format expected by OpenAI
             pcm_audio = await self._convert_audio_to_pcm16(audio_data)
             if not pcm_audio:
@@ -327,13 +336,19 @@ class OpenAIVoiceService:
                 # Handle user speech transcription
                 transcript = event.get("transcript", "")
                 if transcript and self._on_transcript:
-                    await self._on_transcript(f"User: {transcript}")
+                    # Use the timestamp when user audio arrived, not when transcription is received
+                    user_speech_timestamp = self._user_audio_timestamp or datetime.utcnow()
+                    
+                    await self._on_transcript(transcript, MessageRole.USER.value, user_speech_timestamp)
                 
             elif event_type == "response.audio_transcript.delta":
                 # Handle AI response transcript chunks
                 delta = event.get("delta", "")
                 if delta and self._on_transcript:
-                    await self._on_transcript(f"AI: {delta}")
+                    # Capture timestamp when AI response chunk is received by server
+                    ai_response_timestamp = datetime.utcnow()
+                    
+                    await self._on_transcript(delta, MessageRole.ASSISTANT.value, ai_response_timestamp)
                     
             elif event_type == "response.audio.delta":
                 # Handle audio response chunks

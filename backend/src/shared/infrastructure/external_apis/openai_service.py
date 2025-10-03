@@ -9,6 +9,7 @@ import aiohttp
 
 from src.shared.domain.interfaces.ai_service_interface import AIServiceInterface
 from src.shared.infrastructure.external_apis.api_config import api_config
+from src.conversation.domain.entities.message import MessageRole
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +91,7 @@ class OpenAIService(AIServiceInterface):
             messages.extend(conversation_history)
         
         # Add current user message
-        messages.append({"role": "user", "content": user_message})
+        messages.append({"role": MessageRole.USER.value, "content": user_message})
         
         return await self.generate_response(
             messages=messages,
@@ -110,7 +111,7 @@ class OpenAIService(AIServiceInterface):
             
             messages = [
                 {"role": "system", "content": analysis_prompt},
-                {"role": "user", "content": context}
+                {"role": MessageRole.USER.value, "content": context}
             ]
             
             response = await self.generate_response(
@@ -137,7 +138,7 @@ class OpenAIService(AIServiceInterface):
             f"Duration: {conversation_data.get('duration_seconds', 0)} seconds",
             f"Total Messages: {conversation_data.get('total_messages', 0)}",
             f"User Messages: {conversation_data.get('user_messages', 0)}",
-            f"Assistant Messages: {conversation_data.get('assistant_messages', 0)}",
+            f"AI Messages: {conversation_data.get('ai_messages', 0)}",
             "",
             "CONVERSATION DATA:",
             json.dumps(conversation_data, indent=2, ensure_ascii=False)
@@ -155,7 +156,7 @@ class OpenAIService(AIServiceInterface):
             
             payload = {
                 "model": self.model,
-                "messages": [{"role": "user", "content": "Hello"}],
+                "messages": [{"role": MessageRole.USER.value, "content": "Hello"}],
                 "max_tokens": 5
             }
             

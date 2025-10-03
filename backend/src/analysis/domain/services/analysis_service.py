@@ -268,7 +268,7 @@ class AnalysisService:
         
         # Count user and assistant messages
         user_messages = [m for m in messages if m.get('role') == 'user']
-        assistant_messages = [m for m in messages if m.get('role') == 'assistant']
+        ai_messages = [m for m in messages if m.get('role') == 'ai']
         
         # Calculate basic metrics
         total_messages = len(messages)

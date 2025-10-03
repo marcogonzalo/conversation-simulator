@@ -3,6 +3,8 @@ import json
 import logging
 from typing import Dict, List, Any
 
+from src.conversation.domain.entities.message import MessageRole
+
 logger = logging.getLogger(__name__)
 
 class ConnectionManager:
@@ -68,12 +70,13 @@ async def send_pong(conversation_id: str):
     }
     await manager.send_message(conversation_id_str, message)
 
-async def send_transcribed_text(conversation_id: str, text: str):
+async def send_transcribed_text(conversation_id: str, text: str, role: str = MessageRole.ASSISTANT.value):
     """Send transcribed text to client."""
     conversation_id_str = str(conversation_id)
     message = {
         "type": "transcribed_text",
         "content": text,
+        "role": role,
         "conversation_id": conversation_id_str
     }
     await manager.send_message(conversation_id_str, message)

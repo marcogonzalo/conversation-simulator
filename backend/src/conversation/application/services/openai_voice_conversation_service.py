@@ -326,21 +326,26 @@ class OpenAIVoiceConversationService:
                 except Exception as e:
                     logger.error(f"[{conversation_id}] - Error handling audio chunk: {e}", exc_info=True)
             
-            async def on_transcript(transcript: str):
+            async def on_transcript(transcript: str, role: str = MessageRole.ASSISTANT.value, event_timestamp: Optional[datetime] = None):
                 """Handle transcript from OpenAI."""
                 try:
                     if transcript.strip():
-                        # Send transcript immediately to frontend (non-blocking)
-                        await send_transcribed_text(conversation_id, transcript)
+                        # Use event timestamp if provided, otherwise use current time
+                        message_timestamp = event_timestamp or datetime.utcnow()
                         
-                        # Save AI message to conversation (async, non-blocking)
+                        # Send transcript immediately to frontend (non-blocking)
+                        await send_transcribed_text(conversation_id, transcript, role)
+                        
+                        # Save message to conversation (async, non-blocking)
                         # Don't await this to avoid blocking audio processing
                         asyncio.create_task(
                             self.conversation_service.send_message(
                                 conversation_id=str(conversation_id),
-                                role="assistant",
+                                role=role,
                                 content=transcript,
-                                audio_url=None
+                                audio_url=None,
+                                metadata={"event_timestamp": message_timestamp.isoformat()},
+                                message_timestamp=message_timestamp
                             )
                         )
                 except Exception as e:

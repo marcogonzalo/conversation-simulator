@@ -3,6 +3,7 @@ Conversation application service.
 """
 from typing import List, Optional
 from uuid import UUID
+from datetime import datetime
 
 from src.conversation.application.commands.start_conversation import StartConversationCommand, StartConversationResult
 from src.conversation.application.commands.send_message import SendMessageCommand, SendMessageResult
@@ -55,7 +56,8 @@ class ConversationApplicationService:
         role: str,
         content: str,
         audio_url: Optional[str] = None,
-        metadata: Optional[dict] = None
+        metadata: Optional[dict] = None,
+        message_timestamp: Optional[datetime] = None
     ) -> SendMessageResult:
         """Send a message in a conversation."""
         try:
@@ -73,7 +75,8 @@ class ConversationApplicationService:
             role=message_role,
             content=content,
             audio_url=audio_url,
-            metadata=metadata
+            metadata=metadata,
+            message_timestamp=message_timestamp
         )
         return await self._send_message_handler.handle(command)
     

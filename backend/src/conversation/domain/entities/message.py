@@ -13,7 +13,7 @@ from src.shared.domain.events import MessageAdded
 class MessageRole(Enum):
     """Message role enumeration."""
     USER = "user"
-    ASSISTANT = "assistant"
+    ASSISTANT = "ai"
     SYSTEM = "system"
 
 
@@ -104,7 +104,8 @@ class Message:
         cls,
         conversation_id: UUID,
         content: str,
-        audio_url: Optional[str] = None
+        audio_url: Optional[str] = None,
+        timestamp: Optional[datetime] = None
     ) -> 'Message':
         """Create a user message."""
         message = cls(
@@ -112,7 +113,8 @@ class Message:
             conversation_id=conversation_id,
             role=MessageRole.USER,
             content=MessageContent(content),
-            audio_url=audio_url
+            audio_url=audio_url,
+            timestamp=timestamp
         )
         
         message._domain_events.append(
@@ -131,7 +133,8 @@ class Message:
         cls,
         conversation_id: UUID,
         content: str,
-        audio_url: Optional[str] = None
+        audio_url: Optional[str] = None,
+        timestamp: Optional[datetime] = None
     ) -> 'Message':
         """Create an assistant message."""
         message = cls(
@@ -139,7 +142,8 @@ class Message:
             conversation_id=conversation_id,
             role=MessageRole.ASSISTANT,
             content=MessageContent(content),
-            audio_url=audio_url
+            audio_url=audio_url,
+            timestamp=timestamp
         )
         
         message._domain_events.append(

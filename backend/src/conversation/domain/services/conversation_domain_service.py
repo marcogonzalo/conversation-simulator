@@ -50,12 +50,12 @@ class ConversationDomainService:
     def get_conversation_summary(self, conversation: Conversation) -> dict:
         """Get a summary of the conversation."""
         user_messages = [m for m in conversation.messages if m.role == MessageRole.USER]
-        assistant_messages = [m for m in conversation.messages if m.role == MessageRole.ASSISTANT]
+        ai_messages = [m for m in conversation.messages if m.role == MessageRole.ASSISTANT]
         
         return {
             'total_messages': len(conversation.messages),
             'user_messages': len(user_messages),
-            'assistant_messages': len(assistant_messages),
+            'ai_messages': len(ai_messages),
             'duration_seconds': conversation.duration_seconds,
             'status': conversation.status.value,
             'has_audio': any(m.has_audio() for m in conversation.messages)
@@ -77,19 +77,19 @@ class ConversationDomainService:
             return {}
         
         user_messages = [m for m in conversation.messages if m.role == MessageRole.USER]
-        assistant_messages = [m for m in conversation.messages if m.role == MessageRole.ASSISTANT]
+        ai_messages = [m for m in conversation.messages if m.role == MessageRole.ASSISTANT]
         
         total_words = sum(len(m.content.text.split()) for m in conversation.messages)
         user_words = sum(len(m.content.text.split()) for m in user_messages)
-        assistant_words = sum(len(m.content.text.split()) for m in assistant_messages)
+        ai_words = sum(len(m.content.text.split()) for m in ai_messages)
         
         return {
             'message_count': len(conversation.messages),
             'user_message_count': len(user_messages),
-            'assistant_message_count': len(assistant_messages),
+            'ai_message_count': len(ai_messages),
             'total_words': total_words,
             'user_words': user_words,
-            'assistant_words': assistant_words,
+            'ai_words': ai_words,
             'average_message_length': total_words / len(conversation.messages) if conversation.messages else 0,
             'user_speak_ratio': user_words / total_words if total_words > 0 else 0,
             'duration_seconds': conversation.duration_seconds or 0,

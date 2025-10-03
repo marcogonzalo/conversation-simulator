@@ -3,8 +3,10 @@ Simplified tests for audio service that focus on what actually works.
 """
 import pytest
 from unittest.mock import Mock, patch, AsyncMock, mock_open
+from datetime import datetime
 from src.audio.infrastructure.services.openai_voice_service import OpenAIVoiceService
 from src.shared.infrastructure.external_apis.api_config import api_config
+from src.conversation.domain.entities.message import MessageRole
 
 
 @pytest.mark.unit
@@ -108,7 +110,54 @@ class TestOpenAIVoiceServiceSimple:
         
         await voice_service._handle_event(event_data)
         
-        mock_callback.assert_called_once_with("AI: Hello world")
+        # Check that callback was called with transcript, role, and timestamp
+        mock_callback.assert_called_once()
+        call_args = mock_callback.call_args[0]
+        assert call_args[0] == "Hello world"
+        assert call_args[1] == MessageRole.ASSISTANT.value
+        assert isinstance(call_args[2], datetime)
+
+    @pytest.mark.asyncio
+    async def test_handle_user_transcript_event(self, voice_service):
+        """Test handling user transcript events."""
+        mock_callback = AsyncMock()
+        voice_service._on_transcript = mock_callback
+        
+        event_data = {
+            "type": "conversation.item.input_audio_transcription.completed",
+            "transcript": "Hello user"
+        }
+        
+        await voice_service._handle_event(event_data)
+        
+        # Check that callback was called with transcript, role, and timestamp
+        mock_callback.assert_called_once()
+        call_args = mock_callback.call_args[0]
+        assert call_args[0] == "Hello user"
+        assert call_args[1] == MessageRole.USER.value
+        assert isinstance(call_args[2], datetime)
+
+    @pytest.mark.asyncio
+    async def test_send_audio_captures_timestamp(self, voice_service):
+        """Test that send_audio captures timestamp when user audio arrives."""
+        # Mock the conversion method
+        with patch.object(voice_service, '_convert_audio_to_pcm16', new_callable=AsyncMock) as mock_convert:
+            mock_convert.return_value = b"converted audio data"
+            
+            # Mock the websocket
+            voice_service.websocket = AsyncMock()
+            voice_service.is_connected = True
+            
+            # Send audio
+            audio_data = b"test audio data"
+            result = await voice_service.send_audio(audio_data)
+            
+            # Verify audio was sent successfully
+            assert result is True
+            
+            # Verify timestamp was captured
+            assert voice_service._user_audio_timestamp is not None
+            assert isinstance(voice_service._user_audio_timestamp, datetime)
 
     @pytest.mark.asyncio
     async def test_handle_error_event(self, voice_service):

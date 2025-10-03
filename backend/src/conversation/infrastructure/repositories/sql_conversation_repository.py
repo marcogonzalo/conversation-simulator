@@ -102,7 +102,7 @@ class SQLConversationRepository(ConversationRepository):
                     'timestamp': message.timestamp.isoformat(),
                     'metadata': message.metadata
                 }
-                for message in conversation.messages
+                for message in sorted(conversation.messages, key=lambda m: m.timestamp)
             ],
             'metadata': conversation.metadata
         }

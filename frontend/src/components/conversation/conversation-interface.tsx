@@ -16,6 +16,7 @@ import { AudioStreamingService } from '@/services/audioStreamingService'
 import { processTextChunk } from '@/utils/textChunkProcessor'
 import { Persona } from '@/types/persona'
 import { humanizeAccent } from '@/utils/accentUtils'
+import { MessageRole, MessageRoleUtils } from '@/types/messageRole'
 
 interface ConversationInterfaceProps {
   conversationId?: string | Promise<string>
@@ -269,11 +270,13 @@ export function ConversationInterface({
     switch (data.type) {
       case 'transcribed_text':
         
-        if (data.content && data.content.trim()) {
-          // Check if this is a user transcription (starts with "User: ")
-          if (data.content.startsWith('User: ')) {
+        if (data.content && data.content.trim() && data.role) {
+          // Use role from the message instead of parsing prefixes
+          const transcript = data.content
+          const sender = data.role
+          
+          if (sender === MessageRole.USER) {
             // This is user transcription - update the last user audio message
-            const userTranscript = data.content.substring(6) // Remove "User: " prefix
             
             setMessages(prev => {
               // Find the last user audio message
@@ -291,14 +294,14 @@ export function ConversationInterface({
                 const updated = [...prev]
                 updated[lastUserMessageIndex] = {
                   ...updated[lastUserMessageIndex],
-                  content: userTranscript
+                  content: transcript
                 }
                 return updated
               } else {
                 // Create a new user message if none found
                 const newMessage: Message = {
                   id: `user_${Date.now()}`,
-                  content: userTranscript,
+                  content: transcript,
                   sender: 'user',
                   timestamp: new Date(),
                   isAudio: true
@@ -306,10 +309,8 @@ export function ConversationInterface({
                 return [...prev, newMessage]
               }
             })
-          } else if (data.content.startsWith('AI: ')) {
-            // This is AI transcription - handle as before
-            const aiTranscript = data.content.substring(4) // Remove "AI: " prefix
-            
+          } else if (sender === MessageRole.ASSISTANT) {
+            // This is AI transcription - handle as before            
             setMessages(prev => {
               // Buscar el último mensaje de AI de audio (buscar desde atrás)
               let lastAiMessageIndex = -1
@@ -326,25 +327,25 @@ export function ConversationInterface({
               const isRecentMessage = lastAiMessageIndex !== -1 && 
                 prev[lastAiMessageIndex].timestamp.getTime() > Date.now() - 5000
               
-              if (isRecentMessage && aiTranscript.trim()) {
+              if (isRecentMessage && transcript.trim()) {
                 // Actualizar el mensaje AI existente solo si el contenido es diferente
                 const updated = [...prev]
                 const currentContent = updated[lastAiMessageIndex].content === '[Audio response]' ? '' : updated[lastAiMessageIndex].content
                 
-                if (aiTranscript.trim()) {
+                if (transcript.trim()) {
                   // Use the smart text chunk processor for proper concatenation
-                  const processedContent = processTextChunk(currentContent, aiTranscript)
+                  const processedContent = processTextChunk(currentContent, transcript)
                   updated[lastAiMessageIndex] = {
                     ...updated[lastAiMessageIndex],
                     content: processedContent
                   }
                 }
                 return updated
-              } else if (aiTranscript.trim()) {
+              } else if (transcript.trim()) {
                 // Crear un nuevo mensaje AI solo si el contenido no está vacío
                 const newMessage: Message = {
                   id: `ai_${Date.now()}`,
-                  content: aiTranscript,
+                  content: transcript,
                   sender: 'ai',
                   timestamp: new Date(),
                   isAudio: true
