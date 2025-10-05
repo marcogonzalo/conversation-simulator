@@ -9,7 +9,7 @@ from src.conversation.domain.entities.enhanced_message import EnhancedMessage, M
 from src.conversation.domain.value_objects.conversation_id import ConversationId
 from src.conversation.domain.services.message_processing_service import MessageProcessingService
 from src.conversation.infrastructure.repositories.enhanced_conversation_repository import EnhancedConversationRepository
-from src.conversation.infrastructure.repositories.sql_conversation_repository import SQLConversationRepository
+from src.conversation.infrastructure.persistence.sql_conversation_repo import SQLConversationRepository
 
 
 class EnhancedConversationService:

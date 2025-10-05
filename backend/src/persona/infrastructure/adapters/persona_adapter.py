@@ -86,7 +86,7 @@ class PersonaAdapter:
             return persona
             
         except Exception as e:
-            print(f"Error converting new format to legacy entity: {e}")
+            # Log error but don't print to console
             return None
     
     @staticmethod

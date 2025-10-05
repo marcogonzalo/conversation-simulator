@@ -11,7 +11,7 @@ from src.conversation.domain.entities.message import Message, MessageRole
 from src.conversation.domain.value_objects.conversation_id import ConversationId
 from src.conversation.domain.value_objects.message_content import MessageContent
 from src.conversation.domain.services.conversation_domain_service import ConversationDomainService
-from src.conversation.domain.repositories.conversation_repository import ConversationRepository
+from src.conversation.domain.ports.conversation_repository import IConversationRepository
 from src.conversation.domain.exceptions import ConversationNotFoundError, ConversationStateError
 
 
@@ -20,7 +20,7 @@ class StartConversationCommandHandler:
     
     def __init__(
         self,
-        conversation_repository: ConversationRepository,
+        conversation_repository: IConversationRepository,
         domain_service: ConversationDomainService
     ):
         self._conversation_repository = conversation_repository
@@ -71,7 +71,7 @@ class SendMessageCommandHandler:
     
     def __init__(
         self,
-        conversation_repository: ConversationRepository,
+        conversation_repository: IConversationRepository,
         domain_service: ConversationDomainService
     ):
         self._conversation_repository = conversation_repository

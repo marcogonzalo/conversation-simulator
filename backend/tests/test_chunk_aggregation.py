@@ -19,6 +19,7 @@ class TestChunkAggregation:
     def setup_method(self):
         """Set up test fixtures."""
         self.conversation_service = AsyncMock(spec=ConversationApplicationService)
+        self.conversation_service.send_message = AsyncMock()
         self.voice_service = AsyncMock(spec=OpenAIVoiceApplicationService)
         self.persona_repo = AsyncMock(spec=YAMLPersonaRepository)
         

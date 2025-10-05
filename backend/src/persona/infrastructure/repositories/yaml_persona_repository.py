@@ -41,7 +41,7 @@ class YAMLPersonaRepository(PersonaRepository):
                 persona_data = yaml.safe_load(f)
                 return self._dict_to_persona(persona_data)
         except Exception as e:
-            print(f"Error loading persona {persona_id.value}: {e}")
+            # Log error but don't print to console
             return None
     
     async def get_all(self) -> List[Persona]:
@@ -56,7 +56,7 @@ class YAMLPersonaRepository(PersonaRepository):
                     if persona:
                         personas.append(persona)
             except Exception as e:
-                print(f"Error loading persona from {yaml_file}: {e}")
+                # Log error but don't print to console
                 continue
         
         return personas
@@ -150,5 +150,5 @@ class YAMLPersonaRepository(PersonaRepository):
                 return persona
             
         except Exception as e:
-            print(f"Error converting dict to persona: {e}")
+            # Log error but don't print to console
             return None
