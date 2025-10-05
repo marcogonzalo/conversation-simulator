@@ -16,6 +16,8 @@ pyyaml==6.0.1
 supabase==2.18.1
 sqlalchemy==2.0.43
 alembic==1.16.5
+psycopg[binary]==3.2.3
+# SQLite support (built-in, but explicit for clarity)
 
 # HTTP client
 httpx==0.28.1

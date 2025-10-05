@@ -8,14 +8,19 @@ services:
       - "5678:5678"  # Debug port for debugpy
     env_file:
       - .env
+      - ./backend/config/docker.env
     environment:
       - PYTHONPATH=/app
+      - ENVIRONMENT=development
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/conversation_simulator
     volumes:
       - ./backend:/app
       - /app/__pycache__
     command: python -m debugpy --listen 0.0.0.0:5678 -m uvicorn src.main:app --host 0.0.0.0 --port 8000 --reload --log-level debug
     networks:
       - conversation-simulator
+    depends_on:
+      - postgres
 
   frontend:
     build:
