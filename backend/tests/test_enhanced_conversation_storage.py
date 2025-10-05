@@ -18,7 +18,7 @@ from src.conversation.domain.entities.enhanced_message import (
 from src.conversation.domain.services.message_processing_service import MessageProcessingService
 from src.conversation.infrastructure.repositories.enhanced_conversation_repository import EnhancedConversationRepository
 from src.conversation.application.services.enhanced_conversation_service import EnhancedConversationService
-from src.conversation.infrastructure.repositories.sql_conversation_repository import SQLConversationRepository
+from src.conversation.infrastructure.persistence.sql_conversation_repo import SQLConversationRepository
 from src.conversation.domain.value_objects.conversation_id import ConversationId
 
 
@@ -319,9 +319,8 @@ class TestEnhancedConversationService:
         self.temp_dir = tempfile.mkdtemp()
         
         # Create mock conversation repository
-        self.conversation_repo = SQLConversationRepository(
-            conversations_dir=f"{self.temp_dir}/conversations"
-        )
+        from unittest.mock import AsyncMock
+        self.conversation_repo = AsyncMock()
         
         # Create enhanced repository
         self.enhanced_repo = EnhancedConversationRepository(

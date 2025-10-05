@@ -1,213 +1,136 @@
-# Sistema de Prompts Dinámicos - Documentación Completa
+# Database Configuration Guide
 
-Este directorio contiene los archivos de configuración para el simulador conversacional con el nuevo **Sistema de Prompts Dinámicos**.
+Este directorio contiene las configuraciones de entorno para diferentes escenarios de despliegue.
 
-## 🚀 Nueva Arquitectura de Tres Capas
+## 🏗️ Configuraciones Disponibles
 
-El sistema utiliza una arquitectura de **tres capas** para maximizar la escalabilidad y variabilidad mientras mantiene la calidad y coherencia de la experiencia conversacional.
+### 1. **Development** (`development.env`)
+- **Base de datos**: SQLite (archivo local)
+- **Uso**: Desarrollo local sin dependencias externas
+- **Archivo**: `data/conversation_simulator.db`
 
-### Arquitectura de Capas
+### 2. **Production** (`production.env`)
+- **Base de datos**: PostgreSQL
+- **Uso**: Producción con base de datos dedicada
+- **Configuración**: Variables individuales de PostgreSQL
 
-```
-Prompt Final = Reglas de Seguridad + Simulation Rules + Conversation Context + Persona Details
-```
+### 3. **Supabase** (`supabase.env`)
+- **Base de datos**: PostgreSQL (Supabase)
+- **Uso**: Producción en la nube con Supabase
+- **Configuración**: URL y clave de Supabase
 
-#### Capa 1: Simulation Rules (Inmutable)
+## 🚀 Cómo Usar
 
-**Archivo:** `simulation_rules.yaml`
-
-- **Propósito:** Reglas base que garantizan calidad y consistencia
-- **Contenido:** Identidad del LLM, reglas de seguridad, estándares de realismo
-- **Características:** Nunca cambia entre ejecuciones, aplica a todas las conversaciones
-
-#### Capa 2: Conversation Context (Específico)
-
-**Directorio:** `conversation_contexts/`
-
-- **Propósito:** Marco de conocimiento específico para cada tipo de conversación
-- **Contenido:** Necesidades del cliente, puntos de dolor, objeciones, factores de decisión
-- **Características:** Se selecciona según el tipo de conversación
-
-#### Capa 3: Persona Details (Específico)
-
-**Directorio:** `persona_details/`
-
-- **Propósito:** Estilo de comunicación y personalidad específica del cliente
-- **Contenido:** Identidad, personalidad, estilo de comunicación, comportamiento
-- **Características:** Se selecciona según la persona a simular
-
-## Estructura de Archivos
-
-```text
-backend/config/
-├── simulation_rules.yaml                    # Capa 1 (inmutable)
-├── conversation_contexts/                   # Capa 2 (contextos específicos)
-│   ├── compra_vivienda.yaml
-│   ├── evaluacion_crm.yaml
-│   ├── negociacion_erp.yaml
-│   └── presentacion_marketing.yaml
-└── persona_details/                        # Capa 3 (personas específicas)
-    ├── carlos_mendoza.yaml
-    ├── ana_garcia.yaml
-    └── maria_rodriguez.yaml
-```
-
-## Combinaciones Disponibles
-
-- **4 Contextos** × **3 Personas** = **12 Combinaciones Únicas**
-- Cada combinación genera un prompt único y coherente
-- Fácil expansión para más contextos y personas
-
-## API Endpoints
-
-### Generar Prompt
-
-```http
-POST /api/v1/prompts/generate
-Content-Type: application/json
-
-{
-  "conversation_context_id": "compra_vivienda",
-  "persona_id": "carlos_mendoza"
-}
-```
-
-### Obtener Combinaciones Disponibles
-
-```http
-GET /api/v1/prompts/combinations
-```
-
-### Obtener Contextos Disponibles
-
-```http
-GET /api/v1/prompts/contexts
-```
-
-### Obtener Personas Disponibles
-
-```http
-GET /api/v1/prompts/personas
-```
-
-### Obtener Metadatos de Prompt
-
-```http
-GET /api/v1/prompts/metadata/{context_id}/{persona_id}
-```
-
-### Limpiar Cache
-
-```http
-POST /api/v1/prompts/cache/clear
-```
-
-## Ventajas del Nuevo Sistema
-
-### 1. **Escalabilidad**
-
-- Fácil agregar nuevos contextos de conversación
-- Fácil agregar nuevas personas
-- Combinaciones N×M automáticas
-
-### 2. **Variabilidad**
-
-- 4 contextos × 3 personas = 12 combinaciones únicas
-- Cada combinación genera un prompt único y coherente
-- Fácil expansión para más contextos y personas
-
-### 3. **Mantenibilidad**
-
-- Cada capa es independiente
-- Cambios en una capa no afectan las otras
-- Fácil debugging y testing
-
-### 4. **Consistencia**
-
-- Reglas base garantizan calidad uniforme
-- Estándares de realismo aplicados consistentemente
-- Comportamiento predecible en todas las combinaciones
-
-### 5. **Flexibilidad**
-
-- Fácil modificar comportamientos específicos
-- Configuración externa sin cambios de código
-- Cache inteligente para performance
-
-## Uso del Sistema
-
-### 1. **Generar Prompt Programáticamente**
-
-```python
-from src.shared.application.prompt_service import PromptService
-
-# Inicializar servicio
-prompt_service = PromptService()
-
-# Generar prompt
-prompt = prompt_service.generate_prompt(
-    conversation_context_id="compra_vivienda",
-    persona_id="carlos_mendoza"
-)
-```
-
-### 2. **Obtener Combinaciones Disponibles**
-
-```python
-combinations = prompt_service.get_available_combinations()
-for combo in combinations:
-    print(f"{combo['name']}: {combo['conversation_context_id']} + {combo['persona_id']}")
-```
-
-### 3. **Validar Combinación**
-
-```python
-is_valid = prompt_service.validate_combination(
-    conversation_context_id="evaluacion_crm",
-    persona_id="ana_garcia"
-)
-```
-
-## Testing
-
-Ejecutar el script de prueba:
-
+### Desarrollo Local (SQLite)
 ```bash
-cd backend
-python test_prompt_system.py
+# Usar configuración de desarrollo sin Docker
+export ENVIRONMENT=development
+export DATABASE_PATH=data/conversation_simulator.db
+python scripts/setup_database.py
 ```
 
-## Migración Completada
+### Desarrollo con Docker (PostgreSQL)
+```bash
+# Usar docker-compose con PostgreSQL
+docker-compose up -d postgres
+docker-compose up backend
+```
 
-El sistema ha sido completamente modernizado:
+### Desarrollo con PostgreSQL (Docker)
+```bash
+# Opción 1: Usar DATABASE_URL (recomendado)
+export ENVIRONMENT=development
+export DATABASE_URL=postgresql://postgres:postgres@postgres:5432/conversation_simulator
 
-- Todos los archivos del sistema anterior han sido eliminados
-- El nuevo sistema proporciona mejor seguridad, escalabilidad y mantenibilidad
-- Los endpoints de la API han sido actualizados para usar el nuevo sistema
+# Opción 2: Variables individuales
+export ENVIRONMENT=development
+export POSTGRES_HOST=postgres
+export POSTGRES_DB=conversation_simulator
+export POSTGRES_USER=postgres
+export POSTGRES_PASSWORD=postgres
 
-## Consideraciones de Seguridad
+# Inicializar base de datos
+python scripts/setup_database.py
+```
 
-- **Reglas de Seguridad Inmutables:** Las reglas base están hardcodeadas para prevenir manipulación
-- **Validación de Entrada:** Todas las combinaciones se validan antes de generar prompts
-- **Cache Seguro:** El cache no expone información sensible
-- **Logging de Auditoría:** Todas las operaciones se registran para auditoría
-- **Protección contra Prompt Injection:** Sistema robusto de limpieza con 50+ patrones de inyección
-- **Delimitadores de Sesión:** IDs únicos por conversación para prevenir ataques
-- **Limpieza Automática:** Todo el contenido se limpia antes de enviar a OpenAI
-- **Efectividad de Limpieza:** 87.7% de reducción de contenido malicioso
+### Producción con PostgreSQL
+```bash
+# Usar configuración de producción
+export ENVIRONMENT=production
+python scripts/setup_database.py
+```
 
-## Próximos Pasos
+### Producción con Supabase
+```bash
+# Usar configuración de Supabase
+export ENVIRONMENT=supabase
+export SUPABASE_URL=https://your-project.supabase.co
+export SUPABASE_ANON_KEY=your-anon-key
 
-1. **Validación de Esquemas YAML** - Agregar validación estricta
-2. **Tests Unitarios** - Cobertura completa del sistema
-3. **Documentación API** - Swagger/OpenAPI actualizado
-4. **Frontend Integration** - Actualizar interfaz para usar nuevo sistema
-5. **Performance Optimization** - Cache avanzado y lazy loading
+python scripts/setup_database.py
+```
 
-## Beneficios
+## 🔄 Migración de Datos
 
-1. **Escalabilidad:** Fácil agregar nuevos contextos y personas
-2. **Variabilidad:** Combinaciones N×M automáticas
-3. **Mantenibilidad:** Cada capa es independiente
-4. **Consistencia:** Reglas base garantizan calidad uniforme
-5. **Flexibilidad:** Fácil modificar comportamientos específicos
+### De SQLite a PostgreSQL
+```bash
+# 1. Configurar PostgreSQL
+export ENVIRONMENT=production
+export POSTGRES_HOST=localhost
+export POSTGRES_DB=conversation_simulator
+export POSTGRES_USER=postgres
+export POSTGRES_PASSWORD=your_password
+
+# 2. Migrar datos
+python scripts/migrate_to_postgres.py
+```
+
+## 🐳 Docker
+
+### Desarrollo con Docker
+```bash
+# Usar docker-compose con PostgreSQL
+docker-compose up -d postgres
+docker-compose up backend
+```
+
+### Producción con Docker
+```bash
+# Usar variables de entorno de producción
+docker-compose -f docker-compose.production.yml up
+```
+
+## 📊 Jerarquía de Configuración
+
+El sistema sigue esta jerarquía de configuración:
+
+1. **Variables de entorno del sistema** (más alta prioridad)
+2. **Archivo de configuración del entorno** (`{ENVIRONMENT}.env`)
+3. **Valores por defecto** (más baja prioridad)
+
+## 🔧 Variables de Entorno
+
+### PostgreSQL
+- `POSTGRES_HOST`: Host de PostgreSQL
+- `POSTGRES_PORT`: Puerto (default: 5432)
+- `POSTGRES_DB`: Nombre de la base de datos
+- `POSTGRES_USER`: Usuario
+- `POSTGRES_PASSWORD`: Contraseña
+
+### Supabase
+- `SUPABASE_URL`: URL del proyecto Supabase
+- `SUPABASE_ANON_KEY`: Clave anónima de Supabase
+
+### SQLite (Fallback)
+- `DATABASE_PATH`: Ruta del archivo SQLite
+
+### Configuración Directa
+- `DATABASE_URL`: URL completa de la base de datos (sobrescribe todo)
+
+## 🚨 Notas Importantes
+
+1. **SQLite es solo para desarrollo**: No usar en producción
+2. **PostgreSQL es preferido**: Para desarrollo y producción
+3. **Supabase es para nube**: Para despliegues en la nube
+4. **Migración automática**: El sistema migra automáticamente de SQLite a PostgreSQL cuando está disponible
+5. **Fallback inteligente**: Si PostgreSQL no está disponible, usa SQLite automáticamente

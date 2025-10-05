@@ -9,10 +9,11 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Depends
 
 from src.conversation.application.services.conversation_application_service import ConversationApplicationService
 from src.conversation.application.services.openai_voice_conversation_service import OpenAIVoiceConversationService
-from src.conversation.domain.repositories.conversation_repository import ConversationRepository
+from src.conversation.domain.ports.conversation_repository import IConversationRepository
 from src.conversation.domain.services.conversation_domain_service import ConversationDomainService
-from src.conversation.infrastructure.repositories.sql_conversation_repository import SQLConversationRepository
+from src.conversation.infrastructure.persistence.sql_conversation_repo import SQLConversationRepository
 from src.conversation.infrastructure.repositories.enhanced_conversation_repository import EnhancedConversationRepository
+from src.conversation.infrastructure.services.transcription_file_service import TranscriptionFileService
 from src.audio.application.services.openai_voice_application_service import OpenAIVoiceApplicationService
 from src.audio.infrastructure.repositories.memory_audio_repository import MemoryAudioRepository
 from src.persona.domain.repositories.persona_repository import PersonaRepository
@@ -24,7 +25,7 @@ from src.api.routes.websocket_helpers import manager, send_error, send_pong, sen
 logger = logging.getLogger(__name__)
 
 # Dependency injection
-def get_conversation_repository() -> ConversationRepository:
+def get_conversation_repository() -> IConversationRepository:
     """Get conversation repository instance."""
     return SQLConversationRepository()
 
@@ -33,7 +34,7 @@ def get_conversation_domain_service() -> ConversationDomainService:
     return ConversationDomainService()
 
 def get_conversation_application_service(
-    repository: ConversationRepository = Depends(get_conversation_repository),
+    repository: IConversationRepository = Depends(get_conversation_repository),
     domain_service: ConversationDomainService = Depends(get_conversation_domain_service)
 ) -> ConversationApplicationService:
     """Get conversation application service instance."""
@@ -62,14 +63,16 @@ def get_voice_conversation_service(
     conversation_service: ConversationApplicationService = Depends(get_conversation_application_service),
     voice_service: OpenAIVoiceApplicationService = Depends(get_voice_application_service),
     persona_repo: PersonaRepository = Depends(get_persona_repository),
-    enhanced_repo: EnhancedConversationRepository = Depends(get_enhanced_conversation_repository)
+    enhanced_repo: EnhancedConversationRepository = Depends(get_enhanced_conversation_repository),
+    transcription_service: TranscriptionFileService = Depends(lambda: TranscriptionFileService())
 ) -> OpenAIVoiceConversationService:
     """Get OpenAI voice conversation service instance."""
     return OpenAIVoiceConversationService(
         conversation_service=conversation_service,
         voice_service=voice_service,
         persona_repository=persona_repo,
-        enhanced_repository=enhanced_repo
+        enhanced_repository=enhanced_repo,
+        transcription_service=transcription_service
     )
 
 # WebSocket connection manager
@@ -81,7 +84,7 @@ def get_voice_conversation_service(
 # Router
 router = APIRouter()
 
-async def handle_messages(websocket: WebSocket, conversation_id: str, conversation_service: ConversationApplicationService, voice_service: OpenAIVoiceConversationService, conversation_repository: ConversationRepository):
+async def handle_messages(websocket: WebSocket, conversation_id: str, conversation_service: ConversationApplicationService, voice_service: OpenAIVoiceConversationService, conversation_repository: IConversationRepository):
     """Receive and handle messages from the client."""
     logger.info(f"Starting message handler for conversation {conversation_id}")
     message_count = 0
@@ -180,7 +183,7 @@ async def websocket_conversation(
     conversation_id: str,
     conversation_service: ConversationApplicationService = Depends(get_conversation_application_service),
     voice_service: OpenAIVoiceConversationService = Depends(get_voice_conversation_service),
-    conversation_repository: ConversationRepository = Depends(get_conversation_repository)
+    conversation_repository: IConversationRepository = Depends(get_conversation_repository)
 ):
     """WebSocket endpoint for real-time voice conversation."""
     await manager.connect(websocket, conversation_id)
@@ -217,7 +220,7 @@ async def handle_start_voice_conversation(
     message_data: Dict[str, Any],
     conversation_service: ConversationApplicationService,
     voice_service: OpenAIVoiceConversationService,
-    conversation_repository: ConversationRepository
+    conversation_repository: IConversationRepository
 ):
     """Handle start voice conversation request."""
     logger.info(f"Starting voice conversation for {conversation_id}")
@@ -263,7 +266,7 @@ async def handle_audio_message(
     message_data: Dict[str, Any],
     conversation_service: ConversationApplicationService,
     voice_service: OpenAIVoiceConversationService,
-    conversation_repository: ConversationRepository
+    conversation_repository: IConversationRepository
 ):
     """Handle audio message from client."""
     logger.info(f"Received audio message for conversation {conversation_id}")

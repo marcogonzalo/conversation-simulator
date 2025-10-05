@@ -44,7 +44,7 @@ class SQLAnalysisRepository(AnalysisRepository):
                 analysis_data = json.load(f)
                 return self._dict_to_analysis(analysis_data)
         except Exception as e:
-            print(f"Error loading analysis {analysis_id.value}: {e}")
+            # Log error but don't print to console
             return None
     
     async def get_by_conversation_id(self, conversation_id: str) -> Optional[Analysis]:
@@ -67,7 +67,7 @@ class SQLAnalysisRepository(AnalysisRepository):
                     if analysis:
                         analyses.append(analysis)
             except Exception as e:
-                print(f"Error loading analysis from {json_file}: {e}")
+                # Log error but don't print to console
                 continue
         
         # Sort by created_at descending
@@ -159,7 +159,7 @@ class SQLAnalysisRepository(AnalysisRepository):
             return analysis
         
         except Exception as e:
-            print(f"Error converting dict to analysis: {e}")
+            # Log error but don't print to console
             return None
     
     def _dict_to_sales_metrics(self, data: dict) -> SalesMetrics:

@@ -29,7 +29,7 @@ class PersonaLoaderService:
                 if persona:
                     personas.append(persona)
             except Exception as e:
-                print(f"Error loading persona from {yaml_file}: {e}")
+                # Log error but don't print to console
                 continue
         
         return personas

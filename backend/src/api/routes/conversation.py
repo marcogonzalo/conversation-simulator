@@ -1,5 +1,5 @@
 """
-Conversation API routes with DDD architecture.
+Conversation API routes using ORM directly.
 """
 import logging
 from typing import List, Optional
@@ -7,16 +7,15 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
 
 from src.conversation.application.services.conversation_application_service import ConversationApplicationService
-from src.conversation.domain.repositories.conversation_repository import ConversationRepository
 from src.conversation.domain.services.conversation_domain_service import ConversationDomainService
-from src.conversation.infrastructure.repositories.sql_conversation_repository import SQLConversationRepository
-from src.shared.infrastructure.messaging.event_bus import event_bus
+from src.conversation.domain.ports.conversation_repository import IConversationRepository
+from src.conversation.infrastructure.persistence.sql_conversation_repo import SQLConversationRepository
 
 logger = logging.getLogger(__name__)
 
-# Dependency injection
-def get_conversation_repository() -> ConversationRepository:
-    """Get conversation repository instance."""
+# Dependency injection following Hexagonal Architecture
+def get_conversation_repository() -> IConversationRepository:
+    """Get conversation repository implementation (ADAPTER)."""
     return SQLConversationRepository()
 
 def get_conversation_domain_service() -> ConversationDomainService:
@@ -24,42 +23,46 @@ def get_conversation_domain_service() -> ConversationDomainService:
     return ConversationDomainService()
 
 def get_conversation_application_service(
-    repository: ConversationRepository = Depends(get_conversation_repository),
+    repository: IConversationRepository = Depends(get_conversation_repository),
     domain_service: ConversationDomainService = Depends(get_conversation_domain_service)
 ) -> ConversationApplicationService:
-    """Get conversation application service instance."""
+    """Get conversation application service instance.
+    
+    This is the ASSEMBLY POINT in Hexagonal Architecture - it connects
+    the concrete infrastructure adapter with the application service.
+    """
     return ConversationApplicationService(repository, domain_service)
 
 # Pydantic models for API
 class StartConversationRequest(BaseModel):
     persona_id: str
+    context_id: str = "default"
     metadata: Optional[dict] = None
 
 class StartConversationResponse(BaseModel):
-    conversation_id: str
+    conversation_id: Optional[str] = None
+    transcription_id: Optional[str] = None
     success: bool
     message: Optional[str] = None
 
-class SendMessageRequest(BaseModel):
-    role: str
-    content: str
-    audio_url: Optional[str] = None
-    metadata: Optional[dict] = None
+class AssignAnalysisRequest(BaseModel):
+    analysis_id: str
 
-class SendMessageResponse(BaseModel):
-    message_id: str
+class AssignAnalysisResponse(BaseModel):
     success: bool
     message: Optional[str] = None
 
 class ConversationResponse(BaseModel):
     id: str
     persona_id: str
+    context_id: str
     status: str
-    started_at: Optional[str] = None
-    ended_at: Optional[str] = None
-    duration_seconds: Optional[int] = None
-    messages: List[dict]
+    created_at: Optional[str] = None
+    completed_at: Optional[str] = None
+    transcription_id: Optional[str] = None
+    analysis_id: Optional[str] = None
     metadata: dict
+    duration_seconds: Optional[int] = None
 
 class CompleteConversationResponse(BaseModel):
     success: bool
@@ -77,6 +80,7 @@ async def start_conversation(
     try:
         result = await service.start_conversation(
             persona_id=request.persona_id,
+            context_id=request.context_id,
             metadata=request.metadata
         )
         
@@ -84,7 +88,8 @@ async def start_conversation(
             raise HTTPException(status_code=400, detail=result.message)
         
         return StartConversationResponse(
-            conversation_id=str(result.conversation_id.value),
+            conversation_id=result.conversation_id,
+            transcription_id=result.transcription_id,
             success=result.success,
             message=result.message
         )
@@ -109,23 +114,14 @@ async def get_conversation(
         return ConversationResponse(
             id=conversation.id,
             persona_id=conversation.persona_id,
+            context_id=conversation.context_id,
             status=conversation.status,
-            started_at=conversation.started_at.isoformat() if conversation.started_at else None,
-            ended_at=conversation.ended_at.isoformat() if conversation.ended_at else None,
-            duration_seconds=conversation.duration_seconds,
-            messages=[
-                {
-                    "id": msg.id,
-                    "conversation_id": msg.conversation_id,
-                    "role": msg.role,
-                    "content": msg.content,
-                    "audio_url": msg.audio_url,
-                    "timestamp": msg.timestamp.isoformat(),
-                    "metadata": msg.metadata
-                }
-                for msg in conversation.messages
-            ],
-            metadata=conversation.metadata
+            created_at=conversation.created_at.isoformat() if conversation.created_at else None,
+            completed_at=conversation.completed_at.isoformat() if conversation.completed_at else None,
+            transcription_id=conversation.transcription_id,
+            analysis_id=conversation.analysis_id,
+            metadata=conversation.metadata,
+            duration_seconds=conversation.duration_seconds
         )
     
     except HTTPException:
@@ -134,35 +130,31 @@ async def get_conversation(
         logger.error(f"Error getting conversation: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
-@router.post("/{conversation_id}/messages", response_model=SendMessageResponse)
-async def send_message(
+@router.post("/{conversation_id}/analysis", response_model=AssignAnalysisResponse)
+async def assign_analysis(
     conversation_id: str,
-    request: SendMessageRequest,
+    request: AssignAnalysisRequest,
     service: ConversationApplicationService = Depends(get_conversation_application_service)
 ):
-    """Send a message in a conversation."""
+    """Assign an analysis to a conversation."""
     try:
-        result = await service.send_message(
+        success = await service.assign_analysis(
             conversation_id=conversation_id,
-            role=request.role,
-            content=request.content,
-            audio_url=request.audio_url,
-            metadata=request.metadata
+            analysis_id=request.analysis_id
         )
         
-        if not result.success:
-            raise HTTPException(status_code=400, detail=result.message)
+        if not success:
+            raise HTTPException(status_code=400, detail="Failed to assign analysis")
         
-        return SendMessageResponse(
-            message_id=str(result.message_id),
-            success=result.success,
-            message=result.message
+        return AssignAnalysisResponse(
+            success=True,
+            message="Analysis assigned successfully"
         )
     
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error sending message: {e}")
+        logger.error(f"Error assigning analysis: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.post("/{conversation_id}/complete", response_model=CompleteConversationResponse)

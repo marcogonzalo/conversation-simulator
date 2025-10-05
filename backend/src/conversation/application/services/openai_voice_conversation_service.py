@@ -15,6 +15,7 @@ from src.conversation.domain.value_objects.message_content import MessageContent
 from src.conversation.application.services.conversation_application_service import ConversationApplicationService
 from src.conversation.domain.services.message_processing_service import MessageProcessingService
 from src.conversation.infrastructure.repositories.enhanced_conversation_repository import EnhancedConversationRepository
+from src.conversation.infrastructure.services.transcription_file_service import TranscriptionFileService
 from src.persona.domain.entities.persona import Persona
 from src.persona.domain.repositories.persona_repository import PersonaRepository
 from src.persona.domain.value_objects.persona_id import PersonaId
@@ -32,11 +33,13 @@ class OpenAIVoiceConversationService:
         conversation_service: ConversationApplicationService,
         voice_service: OpenAIVoiceApplicationService,
         persona_repository: PersonaRepository,
-        enhanced_repository: Optional[EnhancedConversationRepository] = None
+        enhanced_repository: Optional[EnhancedConversationRepository] = None,
+        transcription_service: Optional[TranscriptionFileService] = None
     ):
         self.conversation_service = conversation_service
         self.voice_service = voice_service
         self.persona_repository = persona_repository
+        self.transcription_service = transcription_service or TranscriptionFileService()
         self.event_bus = event_bus
         self.active_conversations: Dict[str, bool] = {}
         # Audio accumulation for complete responses
@@ -51,6 +54,8 @@ class OpenAIVoiceConversationService:
         # Chunk aggregation for original system
         self._pending_chunks: Dict[str, Dict[str, str]] = {}
         self._last_chunk_time: Dict[str, datetime] = {}
+        # Store messages for transcription file
+        self._conversation_messages: Dict[str, List[Dict[str, Any]]] = {}
         
     def _detect_silence_segments(self, pcm_data: bytes, sample_rate: int = 24000, 
                                 silence_threshold: float = 0.005, min_silence_duration: float = 0.1) -> List[Tuple[int, int]]:
@@ -273,7 +278,8 @@ class OpenAIVoiceConversationService:
         persona_id: str
     ) -> Dict[str, Any]:
         """Start a voice-to-voice conversation."""
-        conversation_id = conversation.id.value
+        # Ensure conversation_id is always a string
+        conversation_id = str(conversation.id.value)
         logger.info(f"[{conversation_id}] - Starting voice conversation with persona {persona_id}")
         
         # Reset audio state for new conversation/response
@@ -411,6 +417,8 @@ class OpenAIVoiceConversationService:
                 on_audio_complete=on_audio_complete
             )
             
+            logger.info(f"[{conversation_id}] - start_conversation returned: {success}")
+            
             if success:
                 self.active_conversations[conversation_id] = True
                 logger.info(f"[{conversation_id}] - Voice conversation started successfully")
@@ -436,7 +444,8 @@ class OpenAIVoiceConversationService:
         audio_format: str = "webm"
     ) -> Dict[str, Any]:
         """Send audio message to the voice conversation."""
-        conversation_id = conversation.id.value
+        # Ensure conversation_id is always a string
+        conversation_id = str(conversation.id.value)
         logger.info(f"[{conversation_id}] - Sending audio message")
         
         try:
@@ -473,18 +482,34 @@ class OpenAIVoiceConversationService:
         """End a voice conversation and trigger analysis."""
         logger.info(f"[{conversation_id}] - Ending voice conversation")
         
+        # Check if conversation is already being ended to prevent double execution
+        if conversation_id not in self.active_conversations:
+            logger.warning(f"[{conversation_id}] - Conversation already ended or not active")
+            return {"success": True, "message": "Conversation already ended"}
+        
         try:
             # Save any pending chunks before ending
             await self._save_pending_chunks(conversation_id)
             
+            # Save transcription file
+            conversation_result = await self.conversation_service.get_conversation(conversation_id)
+            if conversation_result.success and conversation_result.conversation:
+                transcription_id = conversation_result.conversation.transcription_id
+                if transcription_id:
+                    await self._save_transcription_file(conversation_id, transcription_id)
+            
             # End voice service conversation
             await self.voice_service.end_conversation()
             
-            # Remove from active conversations
-            self.active_conversations.pop(conversation_id, None)
-            
             # Trigger conversation analysis
             analysis_result = await self._trigger_conversation_analysis(conversation_id)
+            
+            # Clean up stored messages after analysis is complete
+            if conversation_id in self._conversation_messages:
+                del self._conversation_messages[conversation_id]
+            
+            # Remove from active conversations (after processing is complete)
+            self.active_conversations.pop(conversation_id, None)
             
             logger.info(f"[{conversation_id}] - Voice conversation ended successfully")
             return {
@@ -520,14 +545,8 @@ class OpenAIVoiceConversationService:
             pending = self._pending_chunks[chunk_key]
             content = pending["content"].strip()
             if content:
-                await self.conversation_service.send_message(
-                    conversation_id=str(conversation_id),
-                    role=role,
-                    content=content,
-                    audio_url=None,
-                    metadata={"event_timestamp": pending["timestamp"].isoformat()},
-                    message_timestamp=pending["timestamp"]
-                )
+                # Store message for transcription file
+                self._store_message_for_transcription(conversation_id, role, content, pending["timestamp"])
             # Remove the old pending message
             del self._pending_chunks[chunk_key]
         
@@ -567,14 +586,9 @@ class OpenAIVoiceConversationService:
             # Save the aggregated message
             content = pending["content"].strip()
             if content:
-                await self.conversation_service.send_message(
-                    conversation_id=str(conversation_id),
-                    role=role,
-                    content=content,
-                    audio_url=None,
-                    metadata={"event_timestamp": pending["timestamp"].isoformat()},
-                    message_timestamp=pending["timestamp"]
-                )
+                # Store message for transcription file
+                self._store_message_for_transcription(conversation_id, role, content, pending["timestamp"])
+                logger.info(f"Aggregated message processed for conversation {conversation_id}: {role} - {content[:50]}...")
             
             # Remove from pending
             if chunk_key in self._pending_chunks:
@@ -589,14 +603,9 @@ class OpenAIVoiceConversationService:
                 content = pending["content"].strip()
                 if content:
                     role = chunk_key.split("_")[-1]  # Extract role from key
-                    await self.conversation_service.send_message(
-                        conversation_id=str(conversation_id),
-                        role=role,
-                        content=content,
-                        audio_url=None,
-                        metadata={"event_timestamp": pending["timestamp"].isoformat()},
-                        message_timestamp=pending["timestamp"]
-                    )
+                    # Store message for transcription file
+                    self._store_message_for_transcription(conversation_id, role, content, pending["timestamp"])
+                    logger.info(f"Message processed for conversation {conversation_id}: {role} - {content[:50]}...")
                 keys_to_remove.append(chunk_key)
         
         # Remove processed chunks
@@ -612,20 +621,25 @@ class OpenAIVoiceConversationService:
                 logger.error(f"[{conversation_id}] - Could not retrieve conversation for analysis")
                 return {"error": "Could not retrieve conversation data"}
             
+            # Get messages from transcription file
+            transcription_id = conversation.conversation.transcription_id
+            if not transcription_id:
+                logger.error(f"[{conversation_id}] - No transcription ID found for analysis")
+                return {"error": "No transcription ID found"}
+            
+            # Read transcription file
+            transcription_data = await self.transcription_service.get_transcription(transcription_id)
+            if not transcription_data:
+                logger.error(f"[{conversation_id}] - Could not read transcription file {transcription_id}")
+                return {"error": "Could not read transcription file"}
+            
             # Prepare conversation data for analysis
             conversation_data = {
                 "conversation_id": conversation_id,
-                "messages": [
-                    {
-                        "role": msg.role.value if hasattr(msg.role, 'value') else str(msg.role),
-                        "content": msg.content.text if hasattr(msg.content, 'text') else str(msg.content),
-                        "timestamp": msg.timestamp.isoformat() if msg.timestamp else ""
-                    }
-                    for msg in conversation.conversation.messages
-                ],
-                "duration_seconds": conversation.conversation.metadata.get('duration_seconds', 0),
-                "persona_name": conversation.conversation.metadata.get('persona_name', 'Cliente'),
-                "metadata": conversation.conversation.metadata
+                "messages": transcription_data.get("messages", []),
+                "duration_seconds": transcription_data.get("duration_seconds", 0),
+                "persona_name": transcription_data.get("persona_id", "Cliente"),
+                "metadata": transcription_data.get("metadata", {})
             }
             
             # Call analysis service
@@ -665,3 +679,60 @@ class OpenAIVoiceConversationService:
                 "active_conversations": 0,
                 "overall": False
             }
+    
+    def _store_message_for_transcription(self, conversation_id: str, role: str, content: str, timestamp: datetime) -> None:
+        """Store a message for transcription file generation."""
+        if conversation_id not in self._conversation_messages:
+            self._conversation_messages[conversation_id] = []
+        
+        message_data = {
+            "id": f"{conversation_id}_{len(self._conversation_messages[conversation_id])}",
+            "conversation_id": conversation_id,
+            "role": role,
+            "content": content,
+            "timestamp": timestamp.isoformat(),
+            "metadata": {}
+        }
+        
+        self._conversation_messages[conversation_id].append(message_data)
+        logger.debug(f"Stored message for transcription: {conversation_id} - {role}")
+    
+    async def _save_transcription_file(self, conversation_id: str, transcription_id: str) -> None:
+        """Save transcription to file when conversation ends."""
+        try:
+            if conversation_id not in self._conversation_messages:
+                logger.warning(f"No messages found for conversation {conversation_id}")
+                return
+            
+            # Get conversation details
+            conversation_result = await self.conversation_service.get_conversation(conversation_id)
+            if not conversation_result.success or not conversation_result.conversation:
+                logger.error(f"Could not get conversation details for {conversation_id}")
+                return
+            
+            conversation = conversation_result.conversation
+            
+            # Sort messages by timestamp to ensure correct chronological order
+            messages = self._conversation_messages[conversation_id]
+            sorted_messages = sorted(messages, key=lambda x: x["timestamp"])
+            
+            # Regenerate IDs to reflect correct chronological order
+            for i, message in enumerate(sorted_messages):
+                message["id"] = f"{conversation_id}_{i}"
+            
+            # Save transcription file
+            await self.transcription_service.save_transcription(
+                conversation_id=conversation_id,
+                transcription_id=transcription_id,
+                messages=sorted_messages,
+                persona_id=conversation.persona_id,
+                context_id=conversation.context_id,
+                metadata={"source": "openai_voice_conversation"}
+            )
+            
+            logger.info(f"Transcription file saved for conversation {conversation_id}")
+            
+            # Note: Don't clean up messages here, they might be needed for analysis
+                
+        except Exception as e:
+            logger.error(f"Failed to save transcription file for {conversation_id}: {e}")

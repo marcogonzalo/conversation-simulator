@@ -190,7 +190,7 @@ class SchemaValidator:
             SimulationRulesSchema(**data)
             return True
         except Exception as e:
-            print(f"Simulation rules validation error: {e}")
+            # Log error but don't print to console
             return False
     
     @staticmethod
@@ -200,7 +200,7 @@ class SchemaValidator:
             ConversationContextSchema(**data)
             return True
         except Exception as e:
-            print(f"Conversation context validation error: {e}")
+            # Log error but don't print to console
             return False
     
     @staticmethod
@@ -210,7 +210,7 @@ class SchemaValidator:
             PersonaDetailsSchema(**data)
             return True
         except Exception as e:
-            print(f"Persona details validation error: {e}")
+            # Log error but don't print to console
             return False
     
     @staticmethod
