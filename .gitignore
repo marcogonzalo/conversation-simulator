@@ -49,7 +49,7 @@ env/
 pip-wheel-metadata/
 *.env
 *.env.*
-
+!*.env.example
 # FastAPI
 instance/
 *.sqlite
