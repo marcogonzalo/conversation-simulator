@@ -115,15 +115,38 @@ export default function ConversationDetailPage() {
   };
 
   const getScoreColor = (score: number) => {
-    if (score >= 8) return 'text-green-600';
-    if (score >= 6) return 'text-yellow-600';
+    if (score >= 9) return 'text-green-600';
+    if (score >= 7) return 'text-yellow-600';
+    if (score >= 5) return 'text-orange-600';
     return 'text-red-600';
   };
 
   const getScoreBgColor = (score: number) => {
-    if (score >= 8) return 'bg-green-100';
-    if (score >= 6) return 'bg-yellow-100';
+    if (score >= 9) return 'bg-green-100';
+    if (score >= 7) return 'bg-yellow-100';
+    if (score >= 5) return 'bg-orange-100';
     return 'bg-red-100';
+  };
+
+  const getScoreBorderColor = (score: number) => {
+    if (score >= 9) return 'border-green-200';
+    if (score >= 7) return 'border-yellow-200';
+    if (score >= 5) return 'border-orange-200';
+    return 'border-red-200';
+  };
+
+  const getScoreGradientBg = (score: number) => {
+    if (score >= 9) return 'bg-gradient-to-br from-green-50 to-green-100';
+    if (score >= 7) return 'bg-gradient-to-br from-yellow-50 to-yellow-100';
+    if (score >= 5) return 'bg-gradient-to-br from-orange-50 to-orange-100';
+    return 'bg-gradient-to-br from-red-50 to-red-100';
+  };
+
+  const getScoreTextColor = (score: number) => {
+    if (score >= 9) return 'text-green-700';
+    if (score >= 7) return 'text-yellow-700';
+    if (score >= 5) return 'text-orange-700';
+    return 'text-red-700';
   };
 
   if (loading) {
@@ -353,11 +376,11 @@ export default function ConversationDetailPage() {
                       <h3 className="text-lg font-semibold text-gray-900 mb-4">📊 Evaluación por Categorías</h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {analysis.metrics.opening_qualification !== undefined && (
-                          <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-4 rounded-lg border border-orange-200">
+                          <div className={`${getScoreGradientBg(analysis.metrics.opening_qualification)} p-4 rounded-lg border ${getScoreBorderColor(analysis.metrics.opening_qualification)}`}>
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
                                 <span className="text-2xl">🚀</span>
-                                <span className="font-medium text-gray-700">Apertura y Calificación</span>
+                                <span className={`font-medium ${getScoreTextColor(analysis.metrics.opening_qualification)}`}>Apertura y Calificación</span>
                               </div>
                               <div className={`text-2xl font-bold ${getScoreColor(analysis.metrics.opening_qualification)}`}>
                                 {analysis.metrics.opening_qualification}/10
@@ -366,11 +389,11 @@ export default function ConversationDetailPage() {
                           </div>
                         )}
                         {analysis.metrics.needs_assessment !== undefined && (
-                          <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-4 rounded-lg border border-blue-200">
+                          <div className={`${getScoreGradientBg(analysis.metrics.needs_assessment)} p-4 rounded-lg border ${getScoreBorderColor(analysis.metrics.needs_assessment)}`}>
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
                                 <span className="text-2xl">🔍</span>
-                                <span className="font-medium text-gray-700">Evaluación de Necesidades</span>
+                                <span className={`font-medium ${getScoreTextColor(analysis.metrics.needs_assessment)}`}>Evaluación de Necesidades</span>
                               </div>
                               <div className={`text-2xl font-bold ${getScoreColor(analysis.metrics.needs_assessment)}`}>
                                 {analysis.metrics.needs_assessment}/10
@@ -379,11 +402,11 @@ export default function ConversationDetailPage() {
                           </div>
                         )}
                         {analysis.metrics.value_presentation !== undefined && (
-                          <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-4 rounded-lg border border-purple-200">
+                          <div className={`${getScoreGradientBg(analysis.metrics.value_presentation)} p-4 rounded-lg border ${getScoreBorderColor(analysis.metrics.value_presentation)}`}>
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
                                 <span className="text-2xl">💎</span>
-                                <span className="font-medium text-gray-700">Presentación de Valor</span>
+                                <span className={`font-medium ${getScoreTextColor(analysis.metrics.value_presentation)}`}>Presentación de Valor</span>
                               </div>
                               <div className={`text-2xl font-bold ${getScoreColor(analysis.metrics.value_presentation)}`}>
                                 {analysis.metrics.value_presentation}/10
@@ -392,11 +415,11 @@ export default function ConversationDetailPage() {
                           </div>
                         )}
                         {analysis.metrics.objection_handling !== undefined && (
-                          <div className="bg-gradient-to-br from-red-50 to-red-100 p-4 rounded-lg border border-red-200">
+                          <div className={`${getScoreGradientBg(analysis.metrics.objection_handling)} p-4 rounded-lg border ${getScoreBorderColor(analysis.metrics.objection_handling)}`}>
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
                                 <span className="text-2xl">🛡️</span>
-                                <span className="font-medium text-gray-700">Manejo de Objeciones</span>
+                                <span className={`font-medium ${getScoreTextColor(analysis.metrics.objection_handling)}`}>Manejo de Objeciones</span>
                               </div>
                               <div className={`text-2xl font-bold ${getScoreColor(analysis.metrics.objection_handling)}`}>
                                 {analysis.metrics.objection_handling}/10
@@ -405,11 +428,11 @@ export default function ConversationDetailPage() {
                           </div>
                         )}
                         {analysis.metrics.closing_effectiveness !== undefined && (
-                          <div className="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-lg border border-green-200">
+                          <div className={`${getScoreGradientBg(analysis.metrics.closing_effectiveness)} p-4 rounded-lg border ${getScoreBorderColor(analysis.metrics.closing_effectiveness)}`}>
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
                                 <span className="text-2xl">🎯</span>
-                                <span className="font-medium text-gray-700">Efectividad de Cierre</span>
+                                <span className={`font-medium ${getScoreTextColor(analysis.metrics.closing_effectiveness)}`}>Efectividad de Cierre</span>
                               </div>
                               <div className={`text-2xl font-bold ${getScoreColor(analysis.metrics.closing_effectiveness)}`}>
                                 {analysis.metrics.closing_effectiveness}/10
@@ -418,11 +441,11 @@ export default function ConversationDetailPage() {
                           </div>
                         )}
                         {analysis.metrics.communication_rapport !== undefined && (
-                          <div className="bg-gradient-to-br from-pink-50 to-pink-100 p-4 rounded-lg border border-pink-200">
+                          <div className={`${getScoreGradientBg(analysis.metrics.communication_rapport)} p-4 rounded-lg border ${getScoreBorderColor(analysis.metrics.communication_rapport)}`}>
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-2">
                                 <span className="text-2xl">💬</span>
-                                <span className="font-medium text-gray-700">Comunicación y Rapport</span>
+                                <span className={`font-medium ${getScoreTextColor(analysis.metrics.communication_rapport)}`}>Comunicación y Rapport</span>
                               </div>
                               <div className={`text-2xl font-bold ${getScoreColor(analysis.metrics.communication_rapport)}`}>
                                 {analysis.metrics.communication_rapport}/10
