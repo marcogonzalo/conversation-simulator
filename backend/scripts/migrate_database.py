@@ -22,7 +22,18 @@ def run_migration():
     
     # Verify tables were created
     with db_config.get_session() as session:
-        result = session.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))
+        # Detect database type and use appropriate query
+        from src.shared.infrastructure.config.environment_config import env_config
+        db_type = env_config.get_database_type()
+        
+        if db_type in ["postgresql", "supabase"]:
+            result = session.execute(text("""
+                SELECT tablename FROM pg_catalog.pg_tables
+                WHERE schemaname != 'pg_catalog' AND schemaname != 'information_schema'
+            """))
+        else:
+            result = session.execute(text("SELECT name FROM sqlite_master WHERE type='table'"))
+        
         tables = [row[0] for row in result.fetchall()]
         print(f"Created tables: {tables}")
         
