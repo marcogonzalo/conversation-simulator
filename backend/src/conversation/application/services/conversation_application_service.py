@@ -125,6 +125,35 @@ class ConversationApplicationService:
                 message=f"Failed to get conversation: {str(e)}"
             )
     
+    async def get_conversations(
+        self, 
+        limit: int = 100, 
+        offset: int = 0
+    ) -> List[ConversationDTO]:
+        """Get all conversations (for history view)."""
+        try:
+            # Use repository port (dependency inversion)
+            conversations = await self._conversation_repository.get_all(limit, offset)
+            
+            return [
+                ConversationDTO(
+                    id=str(conv.id.value),
+                    persona_id=conv.persona_id,
+                    context_id=conv.context_id,
+                    status=conv.status.value,
+                    created_at=conv.created_at,
+                    completed_at=conv.completed_at,
+                    transcription_id=conv.transcription_id,
+                    analysis_id=conv.analysis_id,
+                    metadata=conv.metadata,
+                    duration_seconds=conv.duration_seconds
+                )
+                for conv in conversations
+            ]
+            
+        except Exception as e:
+            return []
+    
     async def get_conversations_by_persona(
         self, 
         persona_id: str, 

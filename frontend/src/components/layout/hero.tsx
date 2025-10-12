@@ -1,5 +1,5 @@
 import { Button } from '@/components/ui/button'
-import { ArrowRight, Mic, Brain, BarChart3, Play, Sparkles } from 'lucide-react'
+import { ArrowRight, Mic, Brain, BarChart3, Play, Sparkles, History } from 'lucide-react'
 import Link from 'next/link'
 
 export function Hero() {
@@ -46,12 +46,15 @@ export function Hero() {
             </Button>
             
             <Button 
+              asChild
               variant="outline" 
               size="lg" 
               className="text-lg px-8 py-4 border-2 border-white/20 text-white hover:bg-white/10 rounded-xl backdrop-blur-sm transition-all duration-300 transform hover:scale-105"
             >
-              <Sparkles className="mr-3 h-5 w-5" />
-              Ver Demo
+              <Link href="/history" className="flex items-center">
+                <History className="mr-3 h-5 w-5" />
+                Ver Historial
+              </Link>
             </Button>
           </div>
         </div>

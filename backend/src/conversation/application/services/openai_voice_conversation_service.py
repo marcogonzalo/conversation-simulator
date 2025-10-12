@@ -647,6 +647,18 @@ class OpenAIVoiceConversationService:
             analysis_service = ConversationAnalysisService()
             analysis = await analysis_service.analyze_conversation(conversation_data)
             
+            # Assign analysis to conversation and mark as completed
+            if analysis and analysis.get('analysis_id'):
+                analysis_id = analysis.get('analysis_id')
+                
+                # Assign analysis to conversation
+                await self.conversation_service.assign_analysis(conversation_id, analysis_id)
+                
+                # Complete the conversation
+                await self.conversation_service.complete_conversation(conversation_id)
+                
+                logger.info(f"[{conversation_id}] - Analysis assigned and conversation completed")
+            
             logger.info(f"[{conversation_id}] - Analysis completed successfully")
             return {
                 "analysis": analysis,

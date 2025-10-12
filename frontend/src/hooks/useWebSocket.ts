@@ -28,6 +28,7 @@ export function useWebSocket({ onMessage, onConnect, onDisconnect, onAnalysis }:
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           persona_id: personaId,
+          context_id: "default", // Default context for now
           metadata: { created_at: new Date().toISOString() }
         }),
       })

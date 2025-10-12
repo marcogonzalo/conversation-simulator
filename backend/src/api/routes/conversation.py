@@ -98,6 +98,36 @@ async def start_conversation(
         logger.error(f"Error starting conversation: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
+@router.get("/history", response_model=List[ConversationResponse])
+async def get_conversation_history(
+    limit: int = 50,
+    offset: int = 0,
+    service: ConversationApplicationService = Depends(get_conversation_application_service)
+):
+    """Get all conversations for history view."""
+    try:
+        conversations = await service.get_conversations(limit=limit, offset=offset)
+        
+        return [
+            ConversationResponse(
+                id=conv.id,
+                persona_id=conv.persona_id,
+                context_id=conv.context_id,
+                status=conv.status,
+                created_at=conv.created_at.isoformat() if conv.created_at else None,
+                completed_at=conv.completed_at.isoformat() if conv.completed_at else None,
+                transcription_id=conv.transcription_id,
+                analysis_id=conv.analysis_id,
+                metadata=conv.metadata,
+                duration_seconds=conv.duration_seconds
+            )
+            for conv in conversations
+        ]
+    
+    except Exception as e:
+        logger.error(f"Error getting conversation history: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
 @router.get("/{conversation_id}", response_model=ConversationResponse)
 async def get_conversation(
     conversation_id: str,
@@ -198,6 +228,60 @@ async def get_conversation_metrics(
         raise
     except Exception as e:
         logger.error(f"Error getting conversation metrics: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+@router.get("/{conversation_id}/full-detail")
+async def get_conversation_full_detail(
+    conversation_id: str,
+    service: ConversationApplicationService = Depends(get_conversation_application_service)
+):
+    """Get complete conversation detail including transcription and analysis."""
+    try:
+        # Import services here to avoid circular dependencies
+        from src.conversation.infrastructure.services.transcription_file_service import TranscriptionFileService
+        from src.analysis.infrastructure.repositories.file_analysis_repository import FileAnalysisRepository
+        
+        # Get conversation
+        result = await service.get_conversation(conversation_id)
+        
+        if not result.success:
+            raise HTTPException(status_code=404, detail=result.message)
+        
+        conversation = result.conversation
+        
+        # Get transcription if available
+        transcription = None
+        if conversation.transcription_id:
+            transcription_service = TranscriptionFileService()
+            transcription = await transcription_service.get_transcription(conversation.transcription_id)
+        
+        # Get analysis if available
+        analysis = None
+        if conversation.analysis_id:
+            analysis_repo = FileAnalysisRepository()
+            analysis = await analysis_repo.get_analysis(conversation.analysis_id)
+        
+        return {
+            "conversation": {
+                "id": conversation.id,
+                "persona_id": conversation.persona_id,
+                "context_id": conversation.context_id,
+                "status": conversation.status,
+                "created_at": conversation.created_at.isoformat() if conversation.created_at else None,
+                "completed_at": conversation.completed_at.isoformat() if conversation.completed_at else None,
+                "transcription_id": conversation.transcription_id,
+                "analysis_id": conversation.analysis_id,
+                "metadata": conversation.metadata,
+                "duration_seconds": conversation.duration_seconds
+            },
+            "transcription": transcription,
+            "analysis": analysis
+        }
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting full conversation detail: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
 @router.get("/persona/{persona_id}")
