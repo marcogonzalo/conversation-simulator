@@ -61,3 +61,5 @@ class ConversationResultDTO:
         self.conversation = conversation
         self.success = success
         self.message = message
+
+

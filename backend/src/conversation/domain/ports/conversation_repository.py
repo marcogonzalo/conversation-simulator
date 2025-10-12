@@ -66,3 +66,5 @@ class IConversationRepository(ABC):
     ) -> bool:
         """Update conversation status and related fields."""
         pass
+
+
