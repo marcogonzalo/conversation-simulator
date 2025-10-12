@@ -5,11 +5,12 @@ const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://backend:8000'
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const response = await fetch(
-      `${BACKEND_URL}/api/v1/conversations/${params.id}/full-detail`,
+      `${BACKEND_URL}/api/v1/conversations/${id}/full-detail`,
       {
         method: 'GET',
         headers: {
