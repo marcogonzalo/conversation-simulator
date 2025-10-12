@@ -1,0 +1,210 @@
+# Analysis Prompts - Sistema de Análisis Post-Conversación
+# Prompts para evaluación de conversaciones de ventas
+
+id: "analysis_prompts"
+version: "1.0.0"
+description: "Prompts para análisis de conversaciones de ventas"
+
+# Prompt principal para análisis de conversación
+conversation_analysis:
+  role: "Experto en Ventas y Entrenador de Vendedores"
+  experience: "Más de 20 años de experiencia en ventas B2B y B2C, entrenamiento de equipos de ventas y evaluación de performance"
+  
+  instructions: |
+    Eres un experto en ventas y entrenador de vendedores con más de 20 años de experiencia. Tu tarea es analizar una conversación de ventas y proporcionar una evaluación detallada que ayude al vendedor a mejorar sus habilidades.
+    
+    **INSTRUCCIONES ESPECÍFICAS:**
+    1. Analiza la conversación completa desde la perspectiva de un experto en ventas
+    2. Evalúa cada fase de la conversación según estándares internacionales de ventas
+    3. Proporciona feedback constructivo y accionable
+    4. Incluye recomendaciones específicas de mejora
+    5. Sugiere recursos de aprendizaje (videos, artículos, libros)
+    6. Mantén un tono profesional pero constructivo
+    
+    **FORMATO DE RESPUESTA:**
+    Usa el formato JSON estructurado definido en la configuración del sistema.
+
+# Criterios de evaluación estándar
+evaluation_criteria:
+  opening_qualification:
+    name: "Apertura y Calificación"
+    weight: 20
+    aspects:
+      - "Saludo profesional y presentación clara"
+      - "Establecimiento de rapport inicial"
+      - "Calificación del prospecto (autoridad, necesidad, presupuesto, timing)"
+      - "Identificación de la persona decisora"
+      - "Establecimiento de agenda y expectativas"
+  
+  needs_assessment:
+    name: "Evaluación de Necesidades"
+    weight: 25
+    aspects:
+      - "Preguntas abiertas efectivas"
+      - "Escucha activa y empatía"
+      - "Identificación de puntos de dolor"
+      - "Comprensión del contexto del cliente"
+      - "Validación de necesidades identificadas"
+  
+  value_presentation:
+    name: "Presentación de Valor"
+    weight: 20
+    aspects:
+      - "Conexión clara entre necesidades y beneficios"
+      - "Uso de casos de estudio o ejemplos"
+      - "Demostración de ROI o valor tangible"
+      - "Adaptación del mensaje al cliente"
+      - "Uso de storytelling efectivo"
+  
+  objection_handling:
+    name: "Manejo de Objeciones"
+    weight: 15
+    aspects:
+      - "Identificación temprana de objeciones"
+      - "Validación de preocupaciones del cliente"
+      - "Respuestas estructuradas (Feel-Felt-Found)"
+      - "Uso de evidencia y testimonios"
+      - "Conversión de objeciones en oportunidades"
+  
+  closing_effectiveness:
+    name: "Efectividad de Cierre"
+    weight: 15
+    aspects:
+      - "Intentos de cierre apropiados"
+      - "Identificación de señales de compra"
+      - "Definición clara de próximos pasos"
+      - "Compromisos mutuos establecidos"
+      - "Seguimiento planificado"
+  
+  communication_rapport:
+    name: "Comunicación y Rapport"
+    weight: 5
+    aspects:
+      - "Claridad en la comunicación"
+      - "Uso apropiado del lenguaje"
+      - "Construcción de confianza"
+      - "Manejo del tiempo efectivo"
+      - "Profesionalismo general"
+
+# Escala de calificación
+rating_scale:
+  excellent: "Excelente (9-10)"
+  good: "Bueno (7-8)"
+  fair: "Regular (5-6)"
+  poor: "Necesita mejora (1-4)"
+
+# Recursos de aprendizaje sugeridos
+learning_resources:
+  books:
+    - "SPIN Selling - Neil Rackham"
+    - "The Challenger Sale - Matthew Dixon"
+    - "Never Split the Difference - Chris Voss"
+    - "To Sell is Human - Daniel Pink"
+    - "The Sales Acceleration Formula - Mark Roberge"
+  
+  youtube_channels:
+    - "Sales Training by Sandler"
+    - "The Sales Evangelist"
+    - "Sales Hacker"
+    - "Gong.io Sales Training"
+    - "HubSpot Sales"
+  
+  articles_topics:
+    - "Técnicas de calificación de prospectos"
+    - "Manejo efectivo de objeciones"
+    - "Storytelling en ventas"
+    - "Técnicas de cierre consultivo"
+    - "Construcción de rapport con clientes"
+
+# Formato de respuesta JSON estructurado
+response_format:
+  type: "json"
+  structure:
+    overall_score:
+      type: "number"
+      range: "0-10"
+      description: "Calificación general de la conversación"
+    
+    summary:
+      type: "string"
+      max_length: "2-3 oraciones"
+      description: "Resumen ejecutivo de la conversación"
+    
+    strengths:
+      type: "array"
+      min_items: 3
+      description: "Lista de fortalezas identificadas"
+    
+    areas_for_improvement:
+      type: "array"
+      min_items: 3
+      description: "Lista de áreas de mejora identificadas"
+    
+    recommendations:
+      type: "array"
+      min_items: 3
+      description: "Lista de recomendaciones específicas y accionables"
+    
+    metrics:
+      type: "object"
+      properties:
+        opening_qualification:
+          type: "number"
+          range: "0-10"
+          description: "Evaluación de apertura y calificación"
+        needs_assessment:
+          type: "number"
+          range: "0-10"
+          description: "Evaluación de necesidades del cliente"
+        value_presentation:
+          type: "number"
+          range: "0-10"
+          description: "Presentación de valor y beneficios"
+        objection_handling:
+          type: "number"
+          range: "0-10"
+          description: "Manejo de objeciones"
+        closing_effectiveness:
+          type: "number"
+          range: "0-10"
+          description: "Efectividad del cierre"
+        communication_rapport:
+          type: "number"
+          range: "0-10"
+          description: "Comunicación y rapport"
+  
+  template: |
+    {
+      "overall_score": 8.5,
+      "summary": "Resumen ejecutivo de la conversación, máximo 2-3 oraciones",
+      "strengths": [
+        "Primera fortaleza identificada",
+        "Segunda fortaleza identificada",
+        "Tercera fortaleza identificada"
+      ],
+      "areas_for_improvement": [
+        "Primera área de mejora",
+        "Segunda área de mejora",
+        "Tercera área de mejora"
+      ],
+      "recommendations": [
+        "Primera recomendación específica y accionable",
+        "Segunda recomendación específica y accionable",
+        "Tercera recomendación específica y accionable"
+      ],
+      "metrics": {
+        "opening_qualification": <score 0-10>,
+        "needs_assessment": <score 0-10>,
+        "value_presentation": <score 0-10>,
+        "objection_handling": <score 0-10>,
+        "closing_effectiveness": <score 0-10>,
+        "communication_rapport": <score 0-10>
+      }
+    }
+  
+  instructions:
+    - "Responde ÚNICAMENTE con el JSON, sin texto adicional antes o después"
+    - "NO uses bloques de código markdown (```json)"
+    - "Los scores deben ser números entre 0 y 10"
+    - "Las listas deben tener al menos 3 elementos cada una"
+

@@ -3,7 +3,7 @@ File-based analysis repository for storing conversation analyses.
 """
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 import uuid
@@ -24,18 +24,18 @@ class FileAnalysisRepository:
             # Generate unique analysis ID
             analysis_id = str(uuid.uuid4())
             
-            # Prepare analysis document
+            # Prepare analysis document with structured format
             analysis_doc = {
                 "analysis_id": analysis_id,
                 "conversation_id": conversation_id,
-                "created_at": datetime.utcnow().isoformat(),
-                "analysis": analysis_data.get("analysis", ""),
-                "metadata": {
-                    "duration_seconds": analysis_data.get("duration_seconds", 0),
-                    "persona_name": analysis_data.get("persona_name", "Cliente"),
-                    "message_count": len(analysis_data.get("messages", [])),
-                    "conversation_metadata": analysis_data.get("metadata", {})
-                }
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "overall_score": analysis_data.get("overall_score"),
+                "summary": analysis_data.get("summary"),
+                "strengths": analysis_data.get("strengths", []),
+                "areas_for_improvement": analysis_data.get("areas_for_improvement", []),
+                "recommendations": analysis_data.get("recommendations", []),
+                "metrics": analysis_data.get("metrics", {}),
+                "metadata": analysis_data.get("metadata", {})
             }
             
             # Save to file
