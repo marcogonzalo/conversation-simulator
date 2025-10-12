@@ -17,7 +17,7 @@ sys.path.insert(0, str(backend_src))
 
 from src.conversation.application.services.conversation_application_service import ConversationApplicationService
 from src.conversation.domain.services.conversation_domain_service import ConversationDomainService
-from src.conversation.infrastructure.repositories.sql_conversation_repository import SQLConversationRepository
+from src.conversation.infrastructure.persistence.sql_conversation_repo import SQLConversationRepository
 from src.persona.infrastructure.repositories.yaml_persona_repository import YAMLPersonaRepository
 from src.audio.application.services.openai_voice_application_service import OpenAIVoiceApplicationService
 from src.audio.infrastructure.repositories.memory_audio_repository import MemoryAudioRepository
