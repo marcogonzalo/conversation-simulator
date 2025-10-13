@@ -639,6 +639,7 @@ class OpenAIVoiceConversationService:
                 "messages": transcription_data.get("messages", []),
                 "duration_seconds": transcription_data.get("duration_seconds", 0),
                 "persona_name": transcription_data.get("persona_id", "Cliente"),
+                "context_id": conversation.conversation.context_id,
                 "metadata": transcription_data.get("metadata", {})
             }
             

@@ -37,6 +37,9 @@ export function ConversationInterface({
   // State for resolved conversation ID
   const [resolvedConversationId, setResolvedConversationId] = useState<string>('')
   
+  // State for context selection - Default to 'compra_vivienda'
+  const selectedContextId = 'compra_vivienda'
+  
   // Use persona prop if provided, otherwise use individual props
   const actualPersonaName = persona?.name || personaName || 'Test Persona'
   const actualPersonaId = persona?.id || personaId || 'test-persona'
@@ -551,7 +554,7 @@ export function ConversationInterface({
     // Limpiar hash de audio anterior para nueva conversación
     lastAudioSentRef.current = null
     
-    await connect(actualPersonaId)
+    await connect(actualPersonaId, selectedContextId)
   }
 
   const endCall = () => {

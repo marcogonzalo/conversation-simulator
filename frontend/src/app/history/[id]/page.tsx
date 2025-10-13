@@ -115,44 +115,38 @@ export default function ConversationDetailPage() {
   };
 
   const getScoreColor = (score: number) => {
-    const lightStep = '500';
-    if (score >= 9) return `text-green-${lightStep}`;
-    if (score >= 7) return `text-yellow-${lightStep}`;
-    if (score >= 5) return `text-orange-${lightStep}`;
-    return `text-red-${lightStep}`;
+    if (score >= 9) return 'text-green-500';
+    if (score >= 7) return 'text-yellow-500';
+    if (score >= 5) return 'text-orange-500';
+    return 'text-red-500';
   };
 
   const getScoreBgColor = (score: number) => {
-    const lightStep = '100';  
-    if (score >= 9) return `bg-green-${lightStep}`;
-    if (score >= 7) return `bg-yellow-${lightStep}`;
-    if (score >= 5) return `bg-orange-${lightStep}`;
-    return `bg-red-${lightStep}`;
+    if (score >= 9) return 'bg-green-100';
+    if (score >= 7) return 'bg-yellow-100';
+    if (score >= 5) return 'bg-orange-100';
+    return 'bg-red-100';
   };
 
   const getScoreBorderColor = (score: number) => {
-    const lightStep = '200';
-    if (score >= 9) return `border-green-${lightStep}`;
-    if (score >= 7) return `border-yellow-${lightStep}`;
-    if (score >= 5) return `border-orange-${lightStep}`;
-    return `border-red-${lightStep}`;
+    if (score >= 9) return 'border-green-200';
+    if (score >= 7) return 'border-yellow-200';
+    if (score >= 5) return 'border-orange-200';
+    return 'border-red-200';
   };
 
   const getScoreGradientBg = (score: number) => {
-    const lightStep = '50';
-    const darkStep = '100';
-    if (score >= 9) return `bg-gradient-to-br from-green-${lightStep} to-green-${darkStep}`;
-    if (score >= 7) return `bg-gradient-to-br from-yellow-${lightStep} to-yellow-${darkStep}`;
-    if (score >= 5) return `bg-gradient-to-br from-orange-${lightStep} to-orange-${darkStep}`;
-    return `bg-gradient-to-br from-red-${lightStep} to-red-${darkStep}`;
+    if (score >= 9) return 'bg-gradient-to-br from-green-50 to-green-100';
+    if (score >= 7) return 'bg-gradient-to-br from-yellow-50 to-yellow-100';
+    if (score >= 5) return 'bg-gradient-to-br from-orange-50 to-orange-100';
+    return 'bg-gradient-to-br from-red-50 to-red-100';
   };
 
   const getScoreTextColor = (score: number) => {
-    const lightStep = '500';
-    if (score >= 9) return `text-green-${lightStep}`;
-    if (score >= 7) return `text-yellow-${lightStep}`;
-    if (score >= 5) return `text-orange-${lightStep}`;
-    return `text-red-${lightStep}`;
+    if (score >= 9) return 'text-green-500';
+    if (score >= 7) return 'text-yellow-500';
+    if (score >= 5) return 'text-orange-500';
+    return 'text-red-500';
   };
 
   if (loading) {
@@ -484,13 +478,13 @@ export default function ConversationDetailPage() {
                         )}
                         {analysis.metadata.persona_name && (
                           <div className="bg-gray-50 p-3 rounded-lg text-center border border-gray-200">
-                            <div className="text-sm font-bold text-gray-700 truncate">{analysis.metadata.persona_name}</div>
+                            <div className="text-sm font-bold text-gray-700 truncate">{humanizePersona(analysis.metadata.persona_name)}</div>
                             <div className="text-xs text-gray-500 mt-1">👤 Persona</div>
                           </div>
                         )}
                         {analysis.metadata.context_id && (
                           <div className="bg-gray-50 p-3 rounded-lg text-center border border-gray-200">
-                            <div className="text-sm font-bold text-gray-700 truncate">{analysis.metadata.context_id}</div>
+                            <div className="text-sm font-bold text-gray-700 truncate">{humanizeContext(analysis.metadata.context_id)}</div>
                             <div className="text-xs text-gray-500 mt-1">🎭 Contexto</div>
                           </div>
                         )}
