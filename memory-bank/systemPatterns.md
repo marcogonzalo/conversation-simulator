@@ -350,6 +350,7 @@ frontend/
 - **Supabase (Cloud)**: PostgreSQL en la nube para despliegues cloud
 - **SQLite (Development)**: Fallback para desarrollo local
 - **JSON Files (Legacy)**: Compatibilidad con sistema anterior
+- **Detección Automática**: Sistema que detecta automáticamente el tipo de base de datos
 
 #### Environment-Based Configuration
 
@@ -357,6 +358,7 @@ frontend/
 - **Production**: PostgreSQL con configuración por variables de entorno
 - **Cloud**: Supabase con configuración automática
 - **Fallback**: Sistema inteligente de fallback entre capas
+- **Migraciones Automáticas**: Scripts automáticos de migración de base de datos
 
 #### Enhanced Repository (Improved Functionality)
 
@@ -364,6 +366,15 @@ frontend/
 - **Intelligent Processing**: Procesamiento inteligente de mensajes
 - **Summary Generation**: Generación automática de resúmenes
 - **Advanced Queries**: Consultas avanzadas con filtros y paginación
+- **SQL Repository**: Repositorio SQL completo con operaciones CRUD
+- **Transcription Service**: Servicio de gestión de archivos de transcripción
+
+#### Database Migration System
+
+- **Auto-Detection**: Detección automática del tipo de base de datos
+- **Migration Scripts**: Scripts automáticos de migración
+- **Version Control**: Control de versiones de esquema de base de datos
+- **Rollback Support**: Soporte para rollback de migraciones
 
 ### **Transcription Management**
 
