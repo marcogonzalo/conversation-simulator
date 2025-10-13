@@ -14,6 +14,7 @@ from src.api.routes.websocket import router as websocket_router
 from src.api.routes.audio import router as audio_router
 from src.api.routes.prompt import router as prompt_router
 from src.api.routes.enhanced_conversation import router as enhanced_conversation_router
+from src.api.routes.contexts import router as contexts_router
 
 logger = logging.getLogger(__name__)
 
@@ -77,6 +78,12 @@ def create_app(lifespan: Callable = None) -> FastAPI:
         enhanced_conversation_router,
         prefix="/api/v1",
         tags=["enhanced-conversations"]
+    )
+    
+    app.include_router(
+        contexts_router,
+        prefix="/api/v1/contexts",
+        tags=["contexts"]
     )
     
     # Health check endpoint
