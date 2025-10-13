@@ -9,19 +9,19 @@ graph TB
         Audio[Web Audio API]
         WS[WebSocket Client]
     end
-    
+
     subgraph "Backend (FastAPI + DDD)"
         API[API Layer]
         APP[Application Layer]
         DOM[Domain Layer]
         INF[Infrastructure Layer]
     end
-    
+
     subgraph "External Services"
         OpenAI[OpenAI GPT-4o-mini-realtime]
         Supabase[Supabase DB]
     end
-    
+
     UI --> API
     Audio --> WS
     WS --> API
@@ -108,15 +108,18 @@ backend/src/
 ├── conversation/               # Bounded Context: Conversation
 │   ├── domain/
 │   │   ├── entities/
-│   │   │   ├── conversation.py # Entity
-│   │   │   └── message.py      # Entity
+│   │   │   ├── conversation.py # Entity (Aggregate Root)
+│   │   │   ├── message.py      # Entity (Legacy)
+│   │   │   ├── enhanced_message.py # Entity (Improved)
+│   │   │   └── transcription.py # Entity (Audio Processing)
 │   │   ├── value_objects/
 │   │   │   ├── conversation_id.py
 │   │   │   └── message_content.py
-│   │   ├── repositories/       # Interfaces (Abstract)
+│   │   ├── ports/              # Repository Interfaces
 │   │   │   └── conversation_repository.py
 │   │   └── services/           # Domain Services
-│   │       └── conversation_domain_service.py
+│   │       ├── conversation_domain_service.py
+│   │       └── message_processing_service.py
 │   │
 │   ├── application/            # Application Layer
 │   │   ├── commands/
@@ -135,10 +138,14 @@ backend/src/
 │   │
 │   └── infrastructure/         # Infrastructure Layer
 │       ├── repositories/       # Implementaciones concretas
-│       │   └── sql_conversation_repository.py
+│       │   ├── sql_conversation_repository.py
+│       │   └── enhanced_conversation_repository.py
 │       ├── services/           # Infrastructure Services
 │       │   ├── ai_conversation_service.py
-│       │   └── websocket_service.py
+│       │   ├── websocket_service.py
+│       │   └── transcription_file_service.py
+│       ├── persistence/        # Persistence Layer
+│       │   └── sql_conversation_repo.py
 │       └── mappers/            # Entity <-> DTO mappers
 │           └── conversation_mapper.py
 │
@@ -316,6 +323,74 @@ frontend/
 - **Límites**: Timeout automático para evitar conversaciones infinitas
 - **Futuro**: Posible configuración por interfaz de usuario
 
+## Enhanced Conversation System
+
+### **Improved Message Processing**
+
+#### EnhancedMessage Entity
+
+- **Intelligent Text Aggregation**: Chunks de texto se agregan automáticamente
+- **Audio Metadata**: Información detallada de audio (duración, formato, calidad)
+- **Processing Status**: Estados de procesamiento (PENDING, PROCESSING, COMPLETED)
+- **Message Types**: TEXT, AUDIO, MIXED para diferentes tipos de contenido
+- **Timestamp Management**: Timestamps precisos para sincronización
+
+#### Message Processing Service
+
+- **Chunk Aggregation**: Agregación inteligente de chunks de texto
+- **Timeout Handling**: Manejo de timeouts para chunks incompletos
+- **Content Finalization**: Marcado de contenido como final
+- **Display Content**: Generación de contenido optimizado para UI
+
+### **Multi-Tier Storage System**
+
+#### Database-First Architecture
+
+- **PostgreSQL (Production)**: Base de datos principal para producción
+- **Supabase (Cloud)**: PostgreSQL en la nube para despliegues cloud
+- **SQLite (Development)**: Fallback para desarrollo local
+- **JSON Files (Legacy)**: Compatibilidad con sistema anterior
+- **Detección Automática**: Sistema que detecta automáticamente el tipo de base de datos
+
+#### Environment-Based Configuration
+
+- **Development**: SQLite automático para desarrollo local
+- **Production**: PostgreSQL con configuración por variables de entorno
+- **Cloud**: Supabase con configuración automática
+- **Fallback**: Sistema inteligente de fallback entre capas
+- **Migraciones Automáticas**: Scripts automáticos de migración de base de datos
+
+#### Enhanced Repository (Improved Functionality)
+
+- **Enhanced Format**: Formato mejorado con metadatos adicionales
+- **Intelligent Processing**: Procesamiento inteligente de mensajes
+- **Summary Generation**: Generación automática de resúmenes
+- **Advanced Queries**: Consultas avanzadas con filtros y paginación
+- **SQL Repository**: Repositorio SQL completo con operaciones CRUD
+- **Transcription Service**: Servicio de gestión de archivos de transcripción
+
+#### Database Migration System
+
+- **Auto-Detection**: Detección automática del tipo de base de datos
+- **Migration Scripts**: Scripts automáticos de migración
+- **Version Control**: Control de versiones de esquema de base de datos
+- **Rollback Support**: Soporte para rollback de migraciones
+
+### **Transcription Management**
+
+#### Transcription Entity
+
+- **Status Management**: Estados de transcripción (PENDING, ACTIVE, COMPLETED, CANCELLED)
+- **Audio Processing**: Metadatos de audio y procesamiento
+- **File Management**: Gestión de archivos de transcripción
+- **Quality Metrics**: Métricas de calidad de transcripción
+
+#### Transcription File Service
+
+- **File Operations**: Operaciones de archivo para transcripciones
+- **Format Conversion**: Conversión entre formatos de audio
+- **Storage Management**: Gestión de almacenamiento de archivos
+
 ### Acentos Regionales Definidos
 
 - **Español**: Caribeño (cubano), Peruano, Venezolano
@@ -458,12 +533,12 @@ class ServiceContainer:
     def __init__(self):
         self._services = {}
         self._setup_services()
-    
+
     def _setup_services(self):
         # Repositories
         self._services['persona_repo'] = PersonaRepository()
         self._services['conversation_repo'] = ConversationRepository()
-        
+
         # Services
         self._services['ai_service'] = AIService()
         self._services['audio_service'] = AudioService()
@@ -484,12 +559,12 @@ class ServiceContainer:
 class EventBus:
     def __init__(self):
         self._handlers = {}
-    
+
     def subscribe(self, event_type: str, handler: callable):
         if event_type not in self._handlers:
             self._handlers[event_type] = []
         self._handlers[event_type].append(handler)
-    
+
     def publish(self, event: Event):
         event_type = type(event).__name__
         if event_type in self._handlers:

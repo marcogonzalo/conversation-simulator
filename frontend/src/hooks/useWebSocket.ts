@@ -16,7 +16,7 @@ export function useWebSocket({ onMessage, onConnect, onDisconnect, onAnalysis }:
   
   const websocketRef = useRef<WebSocket | null>(null)
 
-  const connect = useCallback(async (personaId: string) => {
+  const connect = useCallback(async (personaId: string, contextId: string = "default") => {
     try {
       setIsLoading(true)
       setIsEnding(false) // Reset ending state for new conversation
@@ -28,6 +28,7 @@ export function useWebSocket({ onMessage, onConnect, onDisconnect, onAnalysis }:
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           persona_id: personaId,
+          context_id: contextId,
           metadata: { created_at: new Date().toISOString() }
         }),
       })

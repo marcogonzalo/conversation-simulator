@@ -11,7 +11,7 @@ from pathlib import Path
 from src.persona.infrastructure.repositories.yaml_persona_repository import YAMLPersonaRepository
 from src.persona.domain.value_objects.persona_id import PersonaId
 from src.conversation.application.services.conversation_application_service import ConversationApplicationService
-from src.conversation.infrastructure.repositories.sql_conversation_repository import SQLConversationRepository
+from src.conversation.infrastructure.persistence.sql_conversation_repo import SQLConversationRepository
 from src.conversation.domain.services.conversation_domain_service import ConversationDomainService
 
 

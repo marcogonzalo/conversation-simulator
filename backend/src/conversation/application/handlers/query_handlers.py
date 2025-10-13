@@ -7,14 +7,14 @@ from src.conversation.application.queries.get_conversation import (
     ConversationDto, 
     MessageDto
 )
-from src.conversation.domain.repositories.conversation_repository import ConversationRepository
+from src.conversation.domain.ports.conversation_repository import IConversationRepository
 from src.conversation.domain.exceptions import ConversationNotFoundError
 
 
 class GetConversationQueryHandler:
     """Handler for get conversation query."""
     
-    def __init__(self, conversation_repository: ConversationRepository):
+    def __init__(self, conversation_repository: IConversationRepository):
         self._conversation_repository = conversation_repository
     
     async def handle(self, query: GetConversationQuery) -> GetConversationResult:

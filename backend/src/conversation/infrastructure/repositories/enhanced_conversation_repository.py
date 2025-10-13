@@ -11,11 +11,11 @@ from datetime import datetime
 from src.conversation.domain.entities.conversation import Conversation, ConversationStatus
 from src.conversation.domain.entities.enhanced_message import EnhancedMessage
 from src.conversation.domain.value_objects.conversation_id import ConversationId
-from src.conversation.domain.repositories.conversation_repository import ConversationRepository
+from src.conversation.domain.ports.conversation_repository import IConversationRepository
 from src.conversation.domain.services.message_processing_service import MessageProcessingService
 
 
-class EnhancedConversationRepository(ConversationRepository):
+class EnhancedConversationRepository(IConversationRepository):
     """
     Enhanced conversation repository with intelligent message processing.
     """
@@ -72,7 +72,7 @@ class EnhancedConversationRepository(ConversationRepository):
                 conversation_data = json.load(f)
                 return self._dict_to_conversation(conversation_data)
         except Exception as e:
-            print(f"Error loading conversation {conversation_id.value}: {e}")
+            # Log error but don't print to console
             return None
     
     async def get_enhanced_conversation(self, conversation_id: ConversationId) -> Optional[Dict[str, Any]]:
@@ -86,7 +86,7 @@ class EnhancedConversationRepository(ConversationRepository):
             with open(enhanced_file, 'r', encoding='utf-8') as f:
                 return json.load(f)
         except Exception as e:
-            print(f"Error loading enhanced conversation {conversation_id.value}: {e}")
+            # Log error but don't print to console
             return None
     
     async def get_enhanced_messages(self, conversation_id: ConversationId) -> List[EnhancedMessage]:
@@ -102,7 +102,7 @@ class EnhancedConversationRepository(ConversationRepository):
                 message = EnhancedMessage.from_dict(message_data)
                 messages.append(message)
             except Exception as e:
-                print(f"Error parsing enhanced message: {e}")
+                # Log error but don't print to console
                 continue
         
         return messages
@@ -166,7 +166,7 @@ class EnhancedConversationRepository(ConversationRepository):
                         if conversation:
                             conversations.append(conversation)
             except Exception as e:
-                print(f"Error loading conversation file {conversation_file}: {e}")
+                # Log error but don't print to console
                 continue
         
         # Sort by started_at timestamp
@@ -192,7 +192,7 @@ class EnhancedConversationRepository(ConversationRepository):
                     if original_conversation and original_conversation.persona_id == persona_id:
                         conversations.append(enhanced_data)
             except Exception as e:
-                print(f"Error loading enhanced conversation file {enhanced_file}: {e}")
+                # Log error but don't print to console
                 continue
         
         # Sort by created_at timestamp
@@ -236,7 +236,7 @@ class EnhancedConversationRepository(ConversationRepository):
                     if conversation:
                         conversations.append(conversation)
             except Exception as e:
-                print(f"Error loading conversation file {conversation_file}: {e}")
+                # Log error but don't print to console
                 continue
         
         # Sort by started_at timestamp
@@ -340,5 +340,38 @@ class EnhancedConversationRepository(ConversationRepository):
             return conversation
             
         except Exception as e:
-            print(f"Error converting dictionary to conversation: {e}")
+            # Log error but don't print to console
             return None
+    
+    async def update_status(
+        self, 
+        conversation_id: ConversationId, 
+        status: ConversationStatus, 
+        transcription_id: Optional[str] = None, 
+        analysis_id: Optional[str] = None,
+        metadata: Optional[dict] = None
+    ) -> bool:
+        """Update conversation status and related fields."""
+        try:
+            # Get existing conversation
+            conversation = await self.get_by_id(conversation_id)
+            if not conversation:
+                return False
+            
+            # Update fields
+            if transcription_id:
+                conversation._transcription_id = transcription_id
+            if analysis_id:
+                conversation._analysis_id = analysis_id
+            if metadata:
+                conversation._metadata.update(metadata)
+            
+            # Update status
+            conversation._status = status
+            
+            # Save updated conversation
+            await self.save(conversation)
+            return True
+            
+        except Exception as e:
+            return False

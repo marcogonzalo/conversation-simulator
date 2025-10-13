@@ -8,7 +8,7 @@ from pydantic import BaseModel
 
 from src.conversation.application.services.enhanced_conversation_service import EnhancedConversationService
 from src.conversation.infrastructure.repositories.enhanced_conversation_repository import EnhancedConversationRepository
-from src.conversation.infrastructure.repositories.sql_conversation_repository import SQLConversationRepository
+from src.conversation.infrastructure.persistence.sql_conversation_repo import SQLConversationRepository
 
 
 # Dependency injection

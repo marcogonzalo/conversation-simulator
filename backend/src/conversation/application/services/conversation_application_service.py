@@ -1,166 +1,255 @@
 """
-Conversation application service.
+Conversation application service following Hexagonal Architecture.
 """
 from typing import List, Optional
 from uuid import UUID
 from datetime import datetime
 
-from src.conversation.application.commands.start_conversation import StartConversationCommand, StartConversationResult
-from src.conversation.application.commands.send_message import SendMessageCommand, SendMessageResult
-from src.conversation.application.queries.get_conversation import GetConversationQuery, GetConversationResult, ConversationDto
-from src.conversation.application.handlers.command_handlers import StartConversationCommandHandler, SendMessageCommandHandler
-from src.conversation.application.handlers.query_handlers import GetConversationQueryHandler
 from src.conversation.domain.value_objects.conversation_id import ConversationId
-from src.conversation.domain.entities.message import MessageRole
+from src.conversation.domain.entities.conversation import Conversation, ConversationStatus
 from src.conversation.domain.services.conversation_domain_service import ConversationDomainService
-from src.conversation.domain.repositories.conversation_repository import ConversationRepository
+from src.conversation.domain.ports.conversation_repository import IConversationRepository
+from src.conversation.application.dtos.conversation_dto import (
+    ConversationDTO, StartConversationDTO, ConversationResultDTO
+)
 
 
 class ConversationApplicationService:
-    """Application service for conversation operations."""
+    """Application service for conversation operations.
+    
+    This follows Hexagonal Architecture - it depends only on domain ports,
+    not on concrete infrastructure implementations.
+    """
     
     def __init__(
         self,
-        conversation_repository: ConversationRepository,
+        conversation_repository: IConversationRepository,
         domain_service: ConversationDomainService
     ):
         self._conversation_repository = conversation_repository
         self._domain_service = domain_service
-        
-        # Initialize handlers
-        self._start_conversation_handler = StartConversationCommandHandler(
-            conversation_repository, domain_service
-        )
-        self._send_message_handler = SendMessageCommandHandler(
-            conversation_repository, domain_service
-        )
-        self._get_conversation_handler = GetConversationQueryHandler(
-            conversation_repository
-        )
     
     async def start_conversation(
         self, 
         persona_id: str, 
+        context_id: str = "default",
         metadata: Optional[dict] = None
-    ) -> StartConversationResult:
+    ) -> StartConversationDTO:
         """Start a new conversation."""
-        command = StartConversationCommand(
-            persona_id=persona_id,
-            metadata=metadata
-        )
-        return await self._start_conversation_handler.handle(command)
-    
-    async def send_message(
-        self,
-        conversation_id: str,
-        role: str,
-        content: str,
-        audio_url: Optional[str] = None,
-        metadata: Optional[dict] = None,
-        message_timestamp: Optional[datetime] = None
-    ) -> SendMessageResult:
-        """Send a message in a conversation."""
         try:
-            conversation_id_obj = ConversationId(UUID(conversation_id))
-            message_role = MessageRole(role)
-        except (ValueError, TypeError):
-            return SendMessageResult(
-                message_id=None,
-                success=False,
-                message="Invalid conversation ID or message role"
+            # Validate inputs using domain service
+            if not self._domain_service.can_start_conversation(persona_id):
+                return StartConversationDTO(
+                    conversation_id=None,
+                    transcription_id=None,
+                    success=False,
+                    message="Invalid persona ID"
+                )
+            
+            # Create conversation domain entity
+            conversation_id = ConversationId.generate()
+            conversation = Conversation(
+                conversation_id=conversation_id,
+                persona_id=persona_id,
+                context_id=context_id,
+                metadata=metadata
             )
-        
-        command = SendMessageCommand(
-            conversation_id=conversation_id_obj,
-            role=message_role,
-            content=content,
-            audio_url=audio_url,
-            metadata=metadata,
-            message_timestamp=message_timestamp
-        )
-        return await self._send_message_handler.handle(command)
+            
+            # Start transcription
+            transcription_id = conversation.start_transcription()
+            
+            # Save using repository port (dependency inversion)
+            await self._conversation_repository.save(conversation)
+            
+            return StartConversationDTO(
+                conversation_id=str(conversation_id.value),
+                transcription_id=transcription_id,
+                success=True,
+                message="Conversation started successfully"
+            )
+            
+        except Exception as e:
+            return StartConversationDTO(
+                conversation_id=None,
+                transcription_id=None,
+                success=False,
+                message=f"Failed to start conversation: {str(e)}"
+            )
     
-    async def get_conversation(self, conversation_id: str) -> GetConversationResult:
+    async def get_conversation(self, conversation_id: str) -> ConversationResultDTO:
         """Get a conversation by ID."""
         try:
-            conversation_id_obj = ConversationId(UUID(conversation_id))
+            conversation_id_obj = ConversationId(value=UUID(conversation_id))
         except (ValueError, TypeError):
-            return GetConversationResult(
+            return ConversationResultDTO(
                 conversation=None,
                 success=False,
                 message="Invalid conversation ID"
             )
         
-        query = GetConversationQuery(conversation_id=conversation_id_obj)
-        return await self._get_conversation_handler.handle(query)
+        try:
+            # Use repository port (dependency inversion)
+            conversation = await self._conversation_repository.get_by_id(conversation_id_obj)
+            
+            if not conversation:
+                return ConversationResultDTO(
+                    conversation=None,
+                    success=False,
+                    message="Conversation not found"
+                )
+            
+            # Convert domain entity to DTO
+            conversation_dto = ConversationDTO(
+                id=str(conversation.id.value),
+                persona_id=conversation.persona_id,
+                context_id=conversation.context_id,
+                status=conversation.status.value,
+                created_at=conversation.created_at,
+                completed_at=conversation.completed_at,
+                transcription_id=conversation.transcription_id,
+                analysis_id=conversation.analysis_id,
+                metadata=conversation.metadata,
+                duration_seconds=conversation.duration_seconds
+            )
+            
+            return ConversationResultDTO(
+                conversation=conversation_dto,
+                success=True,
+                message="Conversation retrieved successfully"
+            )
+            
+        except Exception as e:
+            return ConversationResultDTO(
+                conversation=None,
+                success=False,
+                message=f"Failed to get conversation: {str(e)}"
+            )
+    
+    async def get_conversations(
+        self, 
+        limit: int = 100, 
+        offset: int = 0
+    ) -> List[ConversationDTO]:
+        """Get all conversations (for history view)."""
+        try:
+            # Use repository port (dependency inversion)
+            conversations = await self._conversation_repository.get_all(limit, offset)
+            
+            return [
+                ConversationDTO(
+                    id=str(conv.id.value),
+                    persona_id=conv.persona_id,
+                    context_id=conv.context_id,
+                    status=conv.status.value,
+                    created_at=conv.created_at,
+                    completed_at=conv.completed_at,
+                    transcription_id=conv.transcription_id,
+                    analysis_id=conv.analysis_id,
+                    metadata=conv.metadata,
+                    duration_seconds=conv.duration_seconds
+                )
+                for conv in conversations
+            ]
+            
+        except Exception as e:
+            return []
     
     async def get_conversations_by_persona(
         self, 
         persona_id: str, 
         limit: int = 100, 
         offset: int = 0
-    ) -> List[ConversationDto]:
+    ) -> List[ConversationDTO]:
         """Get conversations by persona ID."""
-        conversations = await self._conversation_repository.get_by_persona_id(
-            persona_id, limit, offset
-        )
-        
-        return [
-            ConversationDto(
-                id=str(conv.id.value),
-                persona_id=conv.persona_id,
-                status=conv.status.value,
-                started_at=conv.started_at,
-                ended_at=conv.ended_at,
-                duration_seconds=conv.duration_seconds,
-                messages=[
-                    MessageDto(
-                        id=str(msg.id),
-                        conversation_id=str(msg.conversation_id),
-                        role=msg.role.value,
-                        content=msg.content.text,
-                        audio_url=msg.audio_url,
-                        timestamp=msg.timestamp,
-                        metadata=msg.metadata
-                    )
-                    for msg in conv.messages
-                ],
-                metadata=conv.metadata,
-                created_at=conv.started_at or conv.started_at,
-                updated_at=conv.ended_at or conv.started_at
+        try:
+            # Use repository port (dependency inversion)
+            conversations = await self._conversation_repository.get_by_persona_id(
+                persona_id, limit, offset
             )
-            for conv in conversations
-        ]
+            
+            return [
+                ConversationDTO(
+                    id=str(conv.id.value),
+                    persona_id=conv.persona_id,
+                    context_id=conv.context_id,
+                    status=conv.status.value,
+                    created_at=conv.created_at,
+                    completed_at=conv.completed_at,
+                    transcription_id=conv.transcription_id,
+                    analysis_id=conv.analysis_id,
+                    metadata=conv.metadata,
+                    duration_seconds=conv.duration_seconds
+                )
+                for conv in conversations
+            ]
+            
+        except Exception as e:
+            return []
     
-    async def complete_conversation(self, conversation_id: str) -> bool:
+    async def complete_conversation(self, conversation_id: str, analysis_id: Optional[str] = None) -> bool:
         """Complete a conversation."""
         try:
             conversation_id_obj = ConversationId(UUID(conversation_id))
+            
+            # Get conversation using repository port
             conversation = await self._conversation_repository.get_by_id(conversation_id_obj)
             
             if not conversation:
                 return False
             
+            # Validate using domain service
             if not self._domain_service.can_complete_conversation(conversation):
                 return False
             
+            # Complete the conversation (domain logic)
             conversation.complete()
+            
+            # Save using repository port
             await self._conversation_repository.save(conversation)
+            
             return True
         
         except Exception:
             return False
     
-    async def get_conversation_metrics(self, conversation_id: str) -> Optional[dict]:
-        """Get conversation metrics."""
+    async def assign_analysis(self, conversation_id: str, analysis_id: str) -> bool:
+        """Assign an analysis to a conversation."""
         try:
             conversation_id_obj = ConversationId(UUID(conversation_id))
-            conversation = await self._conversation_repository.get_by_id(conversation_id_obj)
             
-            if not conversation:
-                return None
+            # Update using repository port
+            success = await self._conversation_repository.update_status(
+                conversation_id=conversation_id_obj,
+                status=ConversationStatus.ACTIVE.value,  # Keep current status
+                analysis_id=analysis_id
+            )
             
-            return self._domain_service.get_conversation_metrics(conversation)
+            return success
         
         except Exception:
-            return None
+            return False
+    
+    async def get_all_conversations(self, limit: int = 100, offset: int = 0) -> List[ConversationDTO]:
+        """Get all conversations with pagination."""
+        try:
+            # Use repository port (dependency inversion)
+            conversations = await self._conversation_repository.get_all(limit, offset)
+            
+            return [
+                ConversationDTO(
+                    id=str(conv.id.value),
+                    persona_id=conv.persona_id,
+                    context_id=conv.context_id,
+                    status=conv.status.value,
+                    created_at=conv.created_at,
+                    completed_at=conv.completed_at,
+                    transcription_id=conv.transcription_id,
+                    analysis_id=conv.analysis_id,
+                    metadata=conv.metadata,
+                    duration_seconds=conv.duration_seconds
+                )
+                for conv in conversations
+            ]
+            
+        except Exception as e:
+            return []

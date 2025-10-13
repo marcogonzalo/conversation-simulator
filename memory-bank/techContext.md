@@ -15,8 +15,13 @@
 - **FastAPI**: API moderna, documentación automática, WebSockets
 - **Python 3.13+**: Async/await, type hints, performance
 - **WebSockets**: Comunicación bidireccional en tiempo real
-- **SQLite**: Base de datos ligera para MVP
+- **PostgreSQL**: Base de datos principal para producción
+- **SQLite**: Base de datos ligera para desarrollo
+- **Supabase**: PostgreSQL en la nube para despliegues cloud
 - **Pydantic**: Validación de datos, serialización
+- **SQLAlchemy**: ORM para acceso a base de datos
+- **Alembic**: Migraciones de base de datos
+- **PyYAML**: Configuración basada en YAML
 
 ### AI Services
 
@@ -29,7 +34,9 @@
 - **Docker Compose**: Orquestación de servicios
 - **Vercel**: Frontend hosting (gratis)
 - **Fly.io**: Backend hosting (gratis)
-- **Supabase**: Database hosting (gratis)
+- **Supabase**: Database hosting (gratis) - PostgreSQL en la nube
+- **PostgreSQL**: Base de datos principal para producción
+- **SQLite**: Base de datos ligera para desarrollo local
 
 ## Development Setup
 
@@ -72,6 +79,15 @@ AUDIO_PLAYBACK_SAMPLE_RATE=24000
 VOICE_DETECTION_THRESHOLD=0.5
 VOICE_DETECTION_PREFIX_PADDING_MS=300
 VOICE_DETECTION_SILENCE_DURATION_MS=500
+
+# Database Configuration
+DATABASE_TYPE=postgresql  # postgresql, sqlite, or supabase
+DATABASE_URL=postgresql://user:password@localhost:5432/conversation_simulator
+SUPABASE_URL=your_supabase_url_here
+SUPABASE_KEY=your_supabase_key_here
+
+# Analysis Configuration
+ANALYSIS_CONFIG_PATH=backend/config/analysis_prompts.yaml
 ```
 
 ### Local Development
@@ -127,6 +143,8 @@ supabase==2.18.1
 sqlalchemy==2.0.43
 alembic==1.16.5
 httpx==0.28.1
+psycopg2-binary==2.9.10
+pyyaml==6.0.2
 ```
 
 ### Frontend Dependencies
