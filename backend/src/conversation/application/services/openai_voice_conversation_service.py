@@ -187,7 +187,8 @@ class OpenAIVoiceConversationService:
                 return
             
             buffer_data = self.audio_buffer[conversation_id]
-            if len(buffer_data) < 2400:  # Less than 0.1 seconds at 24kHz (more aggressive processing)
+            # Minimum buffer size for smooth playback: 0.3s at 24kHz = 14,400 bytes
+            if len(buffer_data) < 14400:  # Less than 0.3 seconds at 24kHz
                 return
             
             # Force processing if buffer gets too large (prevent accumulation)

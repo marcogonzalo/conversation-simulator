@@ -46,8 +46,9 @@ class OpenAIVoiceService:
         self.prompt_service = PromptService()
         self._audio_timer: Optional[asyncio.Task] = None
         self._is_processing_audio = False
-        # Reduced timeout: Server VAD handles turn detection, this is just a safety buffer
-        self._audio_timeout = 0.1  # 100ms buffer for audio processing
+        # Server VAD handles turn detection, this timeout controls chunk aggregation size
+        # Larger timeout = bigger chunks = smoother playback (doesn't affect response latency)
+        self._audio_timeout = 0.3  # 300ms for smooth chunk aggregation
         
     async def __aenter__(self):
         """Async context manager entry."""
