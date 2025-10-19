@@ -46,7 +46,8 @@ class OpenAIVoiceService:
         self.prompt_service = PromptService()
         self._audio_timer: Optional[asyncio.Task] = None
         self._is_processing_audio = False
-        self._audio_timeout = 0.5  # seconds to wait before processing accumulated audio
+        # Reduced timeout: Server VAD handles turn detection, this is just a safety buffer
+        self._audio_timeout = 0.1  # 100ms buffer for audio processing
         
     async def __aenter__(self):
         """Async context manager entry."""
@@ -259,14 +260,7 @@ class OpenAIVoiceService:
             await self.websocket.send(json.dumps(commit_event))
             
             logger.info(f"Successfully committed audio buffer: {len(combined_audio)} bytes ({len(audio_base64)} base64 chars)")
-            
-            # Explicitly request response generation since we disabled automatic turn detection
-            # Without turn_detection, OpenAI doesn't automatically generate responses
-            response_create = {
-                "type": "response.create"
-            }
-            await self.websocket.send(json.dumps(response_create))
-            logger.info("Sent response.create request to OpenAI")
+            logger.info("✅ Server VAD will automatically detect when user finishes speaking")
             
         except asyncio.CancelledError:
             logger.info("Audio processing timer cancelled (more audio arrived)")
@@ -283,7 +277,9 @@ class OpenAIVoiceService:
             voice = self.get_voice_for_persona(persona_config.get("accent", "neutral"))
             instructions = self.get_instructions_for_persona(persona_config)
             
-            # Configure session
+            # Configure session with Server VAD for automatic turn detection
+            voice_detection_config = self.api_config.get_openai_voice_config().get("voice_detection", {})
+            
             session_update = {
                 "type": "session.update",
                 "session": {
@@ -295,12 +291,20 @@ class OpenAIVoiceService:
                     "input_audio_transcription": {
                         "model": "whisper-1"
                     },
-                    "turn_detection": None,
+                    "turn_detection": {
+                        "type": "server_vad",
+                        "threshold": voice_detection_config.get("threshold", 0.5),
+                        "prefix_padding_ms": voice_detection_config.get("prefix_padding_ms", 300),
+                        "silence_duration_ms": voice_detection_config.get("silence_duration_ms", 500)
+                    },
                     "tools": [],
                     "tool_choice": "auto",
                     "temperature": self.api_config.openai_voice_temperature
                 }
             }
+            
+            logger.info(f"🎙️ Server VAD enabled: threshold={voice_detection_config.get('threshold', 0.5)}, "
+                       f"silence_duration={voice_detection_config.get('silence_duration_ms', 500)}ms")
             
             await self.websocket.send(json.dumps(session_update))
             logger.info(f"🔌 Session configured with voice: {voice}")

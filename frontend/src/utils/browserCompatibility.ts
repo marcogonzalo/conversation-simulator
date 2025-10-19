@@ -278,30 +278,30 @@ export class BrowserCompatibility {
     switch (capabilities.browserName) {
       case 'Firefox':
         return {
-          vadThreshold: 5,
-          silenceDuration: 1500,
+          vadThreshold: 15, // Increased for more robust detection, avoids cutting during natural pauses
+          silenceDuration: 2000, // 2s for natural conversation flow
           audioChunkSize: 1024,
           preloadStrategy: 'metadata'
         };
       case 'Safari':
         return {
-          vadThreshold: 5,
-          silenceDuration: 1500,
+          vadThreshold: 15, // Increased for more robust detection, avoids cutting during natural pauses
+          silenceDuration: 2000, // 2s for natural conversation flow
           audioChunkSize: 2048,
           preloadStrategy: 'auto'
         };
       case 'Chrome':
       case 'Edge':
         return {
-          vadThreshold: 5,
-          silenceDuration: 1500,
+          vadThreshold: 15, // Increased for more robust detection, avoids cutting during natural pauses
+          silenceDuration: 2000, // 2s for natural conversation flow
           audioChunkSize: 1024,
           preloadStrategy: 'auto'
         };
       default:
         return {
-          vadThreshold: 5,
-          silenceDuration: 1500,
+          vadThreshold: 15, // Increased for more robust detection, avoids cutting during natural pauses
+          silenceDuration: 2000, // 2s for natural conversation flow
           audioChunkSize: 1024,
           preloadStrategy: 'metadata'
         };
