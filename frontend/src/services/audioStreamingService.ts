@@ -11,6 +11,8 @@ export class AudioStreamingService {
   private currentAudio: HTMLAudioElement | null = null
   private onPlaybackStart?: () => void
   private onPlaybackEnd?: () => void
+  private minBufferSize = 1  // Minimum chunks to buffer before playback (1 for immediate playback)
+  private isBuffering = true // Buffer first chunk before playing
 
   constructor(
     onPlaybackStart?: () => void,
@@ -18,6 +20,33 @@ export class AudioStreamingService {
   ) {
     this.onPlaybackStart = onPlaybackStart
     this.onPlaybackEnd = onPlaybackEnd
+    this.isBuffering = true // Ensure buffering is true on init
+  }
+
+  /**
+   * Detect audio format from binary data
+   */
+  private detectAudioFormat(audioDataBytes: Uint8Array): string {
+    // Check for RIFF/WAV header (52 49 46 46 = "RIFF")
+    if (audioDataBytes.length >= 4 &&
+        audioDataBytes[0] === 0x52 && // R
+        audioDataBytes[1] === 0x49 && // I
+        audioDataBytes[2] === 0x46 && // F
+        audioDataBytes[3] === 0x46) {  // F
+      return 'audio/wav'
+    }
+    
+    // Check for WebM header (1A 45 DF A3)
+    if (audioDataBytes.length >= 4 &&
+        audioDataBytes[0] === 0x1A &&
+        audioDataBytes[1] === 0x45 &&
+        audioDataBytes[2] === 0xDF &&
+        audioDataBytes[3] === 0xA3) {
+      return 'audio/webm'
+    }
+    
+    // Default fallback
+    return 'audio/webm'
   }
 
   /**
@@ -25,16 +54,16 @@ export class AudioStreamingService {
    */
   addAudioChunk(audioData: string): void {
     try {
-      const capabilities = browserCompatibility.detectCapabilities()
       const performanceConfig = browserCompatibility.getPerformanceRecommendations()
       
       // Decode base64 to get audio data
       const audioDataBytes = Uint8Array.from(atob(audioData), c => c.charCodeAt(0))
       
-      // Use browser-specific MIME type
-      const mimeType = capabilities.preferredAudioFormat || 'audio/webm'
+      // Detect audio format from binary data
+      const mimeType = this.detectAudioFormat(audioDataBytes)
+      console.log(`🎵 Detected audio format: ${mimeType}, size: ${audioDataBytes.length} bytes`)
       
-      // Create audio blob with browser-appropriate MIME type
+      // Create audio blob with detected MIME type
       const audioBlob = new Blob([audioDataBytes], { type: mimeType })
       const audioUrl = URL.createObjectURL(audioBlob)
       const audio = new Audio(audioUrl)
@@ -44,10 +73,15 @@ export class AudioStreamingService {
       
       // Add to queue
       this.audioQueue.push(audio)
+      console.log(`🎵 Added audio chunk to queue (queue size: ${this.audioQueue.length})`)
       
-      // Start playing if not already playing
-      if (!this.isPlaying) {
+      // Start playing when we have minimum buffer
+      if (!this.isPlaying && this.audioQueue.length >= this.minBufferSize) {
+        console.log(`🎵 Starting playback (buffered ${this.audioQueue.length} chunks)`)
+        this.isBuffering = false
         this.playNext()
+      } else if (this.isBuffering && this.audioQueue.length < this.minBufferSize) {
+        console.log(`🎵 Buffering... (${this.audioQueue.length}/${this.minBufferSize} chunks)`)
       }
       
     } catch (error) {
@@ -127,6 +161,7 @@ export class AudioStreamingService {
     this.audioQueue = []
     
     this.isPlaying = false
+    this.isBuffering = true  // Reset buffering state for next audio
   }
 
   /**

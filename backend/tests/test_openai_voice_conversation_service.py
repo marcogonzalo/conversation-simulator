@@ -407,6 +407,92 @@ class TestOpenAIVoiceConversationService:
         parsed_timestamp = datetime.fromisoformat(stored_timestamp)
         assert parsed_timestamp == timestamp
 
+    @pytest.mark.asyncio
+    async def test_convert_pcm_to_wav_generates_valid_wav_header(self, service):
+        """Test that PCM16 to WAV conversion generates a valid WAV file header."""
+        # Arrange
+        # Create sample PCM16 audio data (1 second of 24kHz mono audio)
+        sample_rate = 24000
+        duration_seconds = 1
+        num_samples = sample_rate * duration_seconds
+        pcm_data = bytes([0, 0] * num_samples)  # Silent audio (48000 bytes)
+        
+        # Act
+        wav_data = await service._convert_pcm_to_webm(pcm_data, sample_rate)
+        
+        # Assert - Verify WAV header structure
+        assert len(wav_data) > 44, "WAV file should have at least 44-byte header"
+        
+        # Check RIFF header
+        assert wav_data[0:4] == b'RIFF', "Should start with RIFF"
+        assert wav_data[8:12] == b'WAVE', "Should contain WAVE"
+        
+        # Check fmt chunk
+        assert wav_data[12:16] == b'fmt ', "Should contain fmt chunk"
+        
+        # Check audio format (PCM = 1)
+        audio_format = int.from_bytes(wav_data[20:22], 'little')
+        assert audio_format == 1, "Audio format should be PCM (1)"
+        
+        # Check channels (mono = 1)
+        num_channels = int.from_bytes(wav_data[22:24], 'little')
+        assert num_channels == 1, "Should be mono (1 channel)"
+        
+        # Check sample rate
+        parsed_sample_rate = int.from_bytes(wav_data[24:28], 'little')
+        assert parsed_sample_rate == sample_rate, f"Sample rate should be {sample_rate}"
+        
+        # Check bits per sample (16-bit)
+        bits_per_sample = int.from_bytes(wav_data[34:36], 'little')
+        assert bits_per_sample == 16, "Should be 16-bit PCM"
+        
+        # Check data chunk
+        assert wav_data[36:40] == b'data', "Should contain data chunk"
+        
+        # Check data size
+        data_size = int.from_bytes(wav_data[40:44], 'little')
+        assert data_size == len(pcm_data), "Data size should match PCM data length"
+        
+        # Check that PCM data is preserved
+        assert wav_data[44:] == pcm_data, "PCM data should be preserved after header"
+
+    @pytest.mark.asyncio
+    async def test_convert_pcm_to_wav_with_different_sample_rates(self, service):
+        """Test WAV conversion with various sample rates."""
+        # Arrange
+        pcm_data = bytes([0, 0] * 100)  # 200 bytes of silent audio
+        sample_rates = [8000, 16000, 24000, 48000]
+        
+        for sample_rate in sample_rates:
+            # Act
+            wav_data = await service._convert_pcm_to_webm(pcm_data, sample_rate)
+            
+            # Assert
+            parsed_sample_rate = int.from_bytes(wav_data[24:28], 'little')
+            assert parsed_sample_rate == sample_rate, f"Sample rate should be {sample_rate}"
+            
+            # Verify byte rate calculation (sample_rate * channels * bits_per_sample / 8)
+            expected_byte_rate = sample_rate * 1 * 16 // 8
+            parsed_byte_rate = int.from_bytes(wav_data[28:32], 'little')
+            assert parsed_byte_rate == expected_byte_rate, f"Byte rate should be {expected_byte_rate}"
+
+    @pytest.mark.asyncio
+    async def test_convert_pcm_to_wav_handles_empty_data(self, service):
+        """Test WAV conversion with empty PCM data."""
+        # Arrange
+        pcm_data = b''
+        
+        # Act
+        wav_data = await service._convert_pcm_to_webm(pcm_data, 24000)
+        
+        # Assert
+        assert len(wav_data) == 44, "Should still generate 44-byte header for empty data"
+        assert wav_data[0:4] == b'RIFF', "Should have valid RIFF header"
+        
+        # Data size should be 0
+        data_size = int.from_bytes(wav_data[40:44], 'little')
+        assert data_size == 0, "Data size should be 0 for empty input"
+
 
 @pytest.mark.integration
 class TestOpenAIVoiceConversationServiceIntegration:

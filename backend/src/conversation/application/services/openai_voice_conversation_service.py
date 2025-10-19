@@ -138,58 +138,46 @@ class OpenAIVoiceConversationService:
             return [pcm_data]
         
     async def _convert_pcm_to_webm(self, pcm_data: bytes, sample_rate: int = 24000) -> bytes:
-        """Convert PCM16 audio data to WebM format for frontend compatibility using ffmpeg."""
-        import subprocess
-        import tempfile
-        import os
+        """Convert PCM16 audio data to WAV format for frontend compatibility.
+        
+        WAV is preferred for real-time streaming because:
+        - Simple format (just header + PCM data)
+        - No encoding latency
+        - Works with small chunks
+        - Better browser compatibility for streaming
+        """
+        import struct
         
         try:
-            # Create temporary files for input and output
-            with tempfile.NamedTemporaryFile(suffix='.pcm', delete=False) as pcm_file:
-                pcm_file.write(pcm_data)
-                pcm_path = pcm_file.name
+            # WAV file header
+            num_channels = 1  # Mono
+            bits_per_sample = 16  # PCM16
+            byte_rate = sample_rate * num_channels * bits_per_sample // 8
+            block_align = num_channels * bits_per_sample // 8
+            data_size = len(pcm_data)
             
-            with tempfile.NamedTemporaryFile(suffix='.webm', delete=False) as webm_file:
-                webm_path = webm_file.name
+            # Build WAV header (44 bytes)
+            wav_header = struct.pack(
+                '<4sI4s4sIHHIIHH4sI',
+                b'RIFF',
+                36 + data_size,  # File size - 8
+                b'WAVE',
+                b'fmt ',
+                16,  # fmt chunk size
+                1,   # Audio format (1 = PCM)
+                num_channels,
+                sample_rate,
+                byte_rate,
+                block_align,
+                bits_per_sample,
+                b'data',
+                data_size
+            )
             
-            try:
-                # Use ffmpeg to convert PCM16 to WebM with Opus codec
-                cmd = [
-                    'ffmpeg',
-                    '-f', 's16le',  # Input format: signed 16-bit little-endian PCM
-                    '-ar', str(sample_rate),  # Sample rate
-                    '-ac', '1',  # Mono channel
-                    '-i', pcm_path,  # Input file
-                    '-c:a', 'libopus',  # Audio codec: Opus
-                    '-b:a', '32k',  # Higher bitrate for better quality
-                    '-application', 'voip',  # Optimize for voice
-                    '-f', 'webm',  # Output format
-                    '-y',  # Overwrite output file
-                    webm_path  # Output file
-                ]
-                
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
-                
-                if result.returncode != 0:
-                    logger.error(f"FFmpeg error: {result.stderr}")
-                    return b''
-                
-                # Read the converted WebM file
-                with open(webm_path, 'rb') as f:
-                    webm_data = f.read()
-                
-                return webm_data
-                
-            finally:
-                # Clean up temporary files
-                try:
-                    os.unlink(pcm_path)
-                    os.unlink(webm_path)
-                except OSError:
-                    pass
+            return wav_header + pcm_data
                     
         except Exception as e:
-            logger.error(f"Error converting PCM to WebM: {e}")
+            logger.error(f"Error converting PCM to WAV: {e}")
             return b''
     
     async def _process_audio_buffer(self, conversation_id: str):
