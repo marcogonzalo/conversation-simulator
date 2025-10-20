@@ -173,19 +173,25 @@ class OpenAIVoiceService:
             self._user_audio_timestamp = user_audio_timestamp
             
             # Convert WebM/Opus audio to PCM16 format expected by OpenAI
+            logger.info(f"Converting audio: {len(audio_data)} bytes WebM to PCM16")
             pcm_audio = await self._convert_audio_to_pcm16(audio_data)
             if not pcm_audio:
-                logger.error("Failed to convert audio to PCM16")
+                logger.error(f"Failed to convert audio to PCM16 (input: {len(audio_data)} bytes)")
                 return False
+            
+            logger.info(f"Conversion successful: {len(pcm_audio)} bytes PCM16")
             
             # Add to audio buffer
             self._audio_buffer.append(pcm_audio)
+            logger.info(f"Added to buffer. Buffer now has {len(self._audio_buffer)} chunks, total bytes: {sum(len(c) for c in self._audio_buffer)}")
             
             # Cancel existing timer if it exists
             if self._audio_timer and not self._audio_timer.done():
+                logger.info(f"Cancelling previous timer (buffer had {len(self._audio_buffer)-1} chunks before this one)")
                 self._audio_timer.cancel()
             
             # Start new timer to process accumulated audio
+            logger.info(f"Starting {self._audio_timeout}s timer to process buffer")
             self._audio_timer = asyncio.create_task(self._process_accumulated_audio())
             
             return True
@@ -253,20 +259,34 @@ class OpenAIVoiceService:
             }
             
             await self.websocket.send(json.dumps(event))
+            logger.info(f"✅ Successfully appended audio to OpenAI buffer: {len(combined_audio)} bytes ({len(audio_base64)} base64 chars)")
             
-            # Commit the audio buffer to trigger processing
+            # Wait for OpenAI to process the append
+            await asyncio.sleep(0.1)  # 100ms buffer
+            
+            # Commit the audio buffer
             commit_event = {
                 "type": "input_audio_buffer.commit"
             }
             await self.websocket.send(json.dumps(commit_event))
+            logger.info("✅ Audio committed")
             
-            logger.info(f"Successfully committed audio buffer: {len(combined_audio)} bytes ({len(audio_base64)} base64 chars)")
-            logger.info("✅ Server VAD will automatically detect when user finishes speaking")
+            # Wait briefly for commit to be processed
+            await asyncio.sleep(0.05)  # 50ms
+            
+            # Without Server VAD, we need to manually request response generation
+            response_create = {
+                "type": "response.create"
+            }
+            await self.websocket.send(json.dumps(response_create))
+            logger.info("✅ Response generation requested (Client VAD mode)")
             
         except asyncio.CancelledError:
-            logger.info("Audio processing timer cancelled (more audio arrived)")
+            logger.info("Audio processing timer cancelled (more audio arrived, buffer preserved for next timer)")
+            # Don't raise, just return - buffer is preserved for next processing
+            return
         except Exception as e:
-            logger.error(f"Error processing accumulated audio: {e}")
+            logger.error(f"Error processing accumulated audio: {e}", exc_info=True)
         finally:
             self._is_processing_audio = False
             logger.info("Audio processing completed, reset _is_processing_audio flag")
@@ -278,9 +298,9 @@ class OpenAIVoiceService:
             voice = self.get_voice_for_persona(persona_config.get("accent", "neutral"))
             instructions = self.get_instructions_for_persona(persona_config)
             
-            # Configure session with Server VAD for automatic turn detection
-            voice_detection_config = self.api_config.get_openai_voice_config().get("voice_detection", {})
-            
+            # Configure session without Server VAD (incompatible with our Client VAD + complete audio flow)
+            # We use Client VAD to detect when user stops speaking, then send complete audio
+            # Server VAD expects streaming audio, which causes "buffer too small" errors
             session_update = {
                 "type": "session.update",
                 "session": {
@@ -292,20 +312,14 @@ class OpenAIVoiceService:
                     "input_audio_transcription": {
                         "model": "whisper-1"
                     },
-                    "turn_detection": {
-                        "type": "server_vad",
-                        "threshold": voice_detection_config.get("threshold", 0.5),
-                        "prefix_padding_ms": voice_detection_config.get("prefix_padding_ms", 300),
-                        "silence_duration_ms": voice_detection_config.get("silence_duration_ms", 500)
-                    },
+                    "turn_detection": None,  # Disabled: we use Client VAD + manual commit
                     "tools": [],
                     "tool_choice": "auto",
                     "temperature": self.api_config.openai_voice_temperature
                 }
             }
             
-            logger.info(f"🎙️ Server VAD enabled: threshold={voice_detection_config.get('threshold', 0.5)}, "
-                       f"silence_duration={voice_detection_config.get('silence_duration_ms', 500)}ms")
+            logger.info("🎙️ Using Client VAD + manual commit (Server VAD disabled)")
             
             await self.websocket.send(json.dumps(session_update))
             logger.info(f"🔌 Session configured with voice: {voice}")
@@ -361,6 +375,7 @@ class OpenAIVoiceService:
                 if delta and self._on_audio_chunk:
                     try:
                         audio_data = base64.b64decode(delta)
+                        logger.debug(f"Received audio delta: {len(audio_data)} bytes (aligned: {len(audio_data) % 2 == 0})")
                         await self._on_audio_chunk(audio_data)
                     except Exception as e:
                         logger.error(f"Error decoding audio delta: {e}")

@@ -91,7 +91,11 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
       const bufferLength = analyserRef.current.frequencyBinCount
       dataArrayRef.current = new Uint8Array(bufferLength)
       
-      const VAD_THRESHOLD = performanceConfig.vadThreshold
+      // Dual threshold strategy to handle sustained vowels:
+      // - HIGH threshold (20) to START detection (prevents feedback from playback)
+      // - LOW threshold (5) to MAINTAIN detection (allows sustained low-volume vowels)
+      const VAD_THRESHOLD_HIGH = 20  // Fixed threshold for starting detection
+      const VAD_THRESHOLD_LOW = 5    // Fixed threshold for maintaining detection
       const SILENCE_DURATION_THRESHOLD = performanceConfig.silenceDuration
       let vadLogCounter = 0
       
@@ -119,24 +123,29 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
         //   console.log(`🎤 VAD - Volume: ${average.toFixed(2)}, Speaking: ${isSpeaking}, Recording: ${isRecording}`)
         // }
         
-        if (average > VAD_THRESHOLD) {
-          // Voice detected
+        // Dual threshold: HIGH to start, LOW to maintain (prevents cutting sustained vowels)
+        const thresholdToUse = isSpeaking ? VAD_THRESHOLD_LOW : VAD_THRESHOLD_HIGH
+        
+        if (average > thresholdToUse) {
+          // Voice detected - reset silence timer
           if (!isSpeaking) {
-            console.log(`🎤 Voice detected! Volume: ${average.toFixed(2)}`)
+            console.log(`🎤 Voice detected! Volume: ${average.toFixed(2)} (threshold: ${thresholdToUse})`)
             setIsSpeaking(true)
           }
           lastVoiceTimeRef.current = now
-          silenceStartTimeRef.current = null // Reset silence timer
-          hasDetectedVoiceRef.current = true // Mark that we've detected voice
+          silenceStartTimeRef.current = null // ← KEY: Reset timer on ANY voice activity
+          hasDetectedVoiceRef.current = true
         } else {
-          // Silence detected
+          // Below threshold - likely silence
           if (isSpeaking) {
+            console.log(`🎤 Voice ended, starting silence timer (volume: ${average.toFixed(2)}, threshold: ${thresholdToUse})`)
             setIsSpeaking(false)
-            
-            // Start silence timer if not already started
-            if (silenceStartTimeRef.current === null) {
-              silenceStartTimeRef.current = now
-            }
+          }
+          
+          // Start silence timer only if not already started
+          if (silenceStartTimeRef.current === null) {
+            silenceStartTimeRef.current = now
+            console.log(`🎤 Silence timer started`)
           }
           
           // If waiting for response, stop VAD processing to prevent audio overlap
@@ -148,7 +157,7 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
           // Check if we've had enough silence to stop recording
           // Only if we've detected voice before
           if (silenceStartTimeRef.current !== null && hasDetectedVoiceRef.current) {
-            console.log(`🎤 Checking silence timer - isWaitingForResponse: ${isWaitingForResponse}, silenceStartTime: ${silenceStartTimeRef.current}, hasDetectedVoice: ${hasDetectedVoiceRef.current}`)
+            console.debug(`🎤 Checking silence timer - isWaitingForResponse: ${isWaitingForResponse}, silenceStartTime: ${silenceStartTimeRef.current}, hasDetectedVoice: ${hasDetectedVoiceRef.current}`)
             const silenceDuration = now - silenceStartTimeRef.current
             
             // Log silence duration every second for debugging

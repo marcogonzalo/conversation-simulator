@@ -9,6 +9,7 @@ from typing import Optional, Dict, Any, Callable, List, Tuple
 from datetime import datetime
 
 from src.audio.application.services.openai_voice_application_service import OpenAIVoiceApplicationService
+from src.audio.infrastructure.services.audio_converter_service import AudioConverterService
 from src.conversation.domain.entities.conversation import Conversation
 from src.conversation.domain.entities.message import MessageRole
 from src.conversation.domain.value_objects.message_content import MessageContent
@@ -20,6 +21,7 @@ from src.persona.domain.entities.persona import Persona
 from src.persona.domain.repositories.persona_repository import PersonaRepository
 from src.persona.domain.value_objects.persona_id import PersonaId
 from src.shared.infrastructure.messaging.event_bus import event_bus
+from src.shared.infrastructure.external_apis.api_config import APIConfig
 from src.api.routes.websocket_helpers import send_error, send_transcribed_text, send_processing_status, send_audio_response, send_audio_chunk
 
 logger = logging.getLogger(__name__)
@@ -34,12 +36,14 @@ class OpenAIVoiceConversationService:
         voice_service: OpenAIVoiceApplicationService,
         persona_repository: PersonaRepository,
         enhanced_repository: Optional[EnhancedConversationRepository] = None,
-        transcription_service: Optional[TranscriptionFileService] = None
+        transcription_service: Optional[TranscriptionFileService] = None,
+        api_config: Optional[APIConfig] = None
     ):
         self.conversation_service = conversation_service
         self.voice_service = voice_service
         self.persona_repository = persona_repository
         self.transcription_service = transcription_service or TranscriptionFileService()
+        self.api_config = api_config or APIConfig()
         self.event_bus = event_bus
         self.active_conversations: Dict[str, bool] = {}
         # Audio accumulation for complete responses
@@ -56,6 +60,8 @@ class OpenAIVoiceConversationService:
         self._last_chunk_time: Dict[str, datetime] = {}
         # Store messages for transcription file
         self._conversation_messages: Dict[str, List[Dict[str, Any]]] = {}
+        # Audio converter service with configured format
+        self.audio_converter = AudioConverterService(default_format=self.api_config.audio_output_format)
         
     def _detect_silence_segments(self, pcm_data: bytes, sample_rate: int = 24000, 
                                 silence_threshold: float = 0.005, min_silence_duration: float = 0.1) -> List[Tuple[int, int]]:
@@ -137,85 +143,89 @@ class OpenAIVoiceConversationService:
             logger.error(f"Error splitting audio by silence: {e}")
             return [pcm_data]
         
-    async def _convert_pcm_to_webm(self, pcm_data: bytes, sample_rate: int = 24000) -> bytes:
-        """Convert PCM16 audio data to WAV format for frontend compatibility.
+    async def _convert_pcm_to_audio(self, pcm_data: bytes, sample_rate: int = 24000) -> bytes:
+        """Convert PCM16 audio data to configured output format (WAV or WebM).
         
-        WAV is preferred for real-time streaming because:
-        - Simple format (just header + PCM data)
-        - No encoding latency
-        - Works with small chunks
-        - Better browser compatibility for streaming
+        Uses AudioConverterService which supports:
+        - WAV: Simple, no latency, larger files, can have Chrome decode issues with many chunks
+        - WebM: Compressed, smaller files, better for streaming, slight quality loss
+        
+        Format is configured via AUDIO_OUTPUT_FORMAT env variable (default: webm)
         """
-        import struct
-        
         try:
-            # WAV file header
-            num_channels = 1  # Mono
-            bits_per_sample = 16  # PCM16
-            byte_rate = sample_rate * num_channels * bits_per_sample // 8
-            block_align = num_channels * bits_per_sample // 8
-            data_size = len(pcm_data)
-            
-            # Build WAV header (44 bytes)
-            wav_header = struct.pack(
-                '<4sI4s4sIHHIIHH4sI',
-                b'RIFF',
-                36 + data_size,  # File size - 8
-                b'WAVE',
-                b'fmt ',
-                16,  # fmt chunk size
-                1,   # Audio format (1 = PCM)
-                num_channels,
-                sample_rate,
-                byte_rate,
-                block_align,
-                bits_per_sample,
-                b'data',
-                data_size
+            # Use the audio converter service with configured format
+            converted_data = await self.audio_converter.convert_pcm_to_format(
+                pcm_data=pcm_data,
+                output_format=None,  # Use default from config
+                sample_rate=sample_rate
             )
             
-            return wav_header + pcm_data
+            return converted_data
                     
         except Exception as e:
-            logger.error(f"Error converting PCM to WAV: {e}")
+            logger.error(f"Error converting PCM to audio: {e}")
             return b''
     
     async def _process_audio_buffer(self, conversation_id: str):
-        """Process accumulated audio buffer and send segments based on silence detection."""
+        """Process accumulated audio buffer with intelligent splitting.
+        
+        Combines silence detection with size limits for optimal chunking:
+        - Prefers natural pauses (silence-based splitting)
+        - Enforces size limits to prevent browser decode errors
+        - Ensures chunks are neither too small nor too large
+        """
         try:
             if conversation_id not in self.audio_buffer:
                 return
             
             buffer_data = self.audio_buffer[conversation_id]
-            # Minimum buffer size for smooth playback: 0.3s at 24kHz = 14,400 bytes
-            if len(buffer_data) < 14400:  # Less than 0.3 seconds at 24kHz
+            playback_sample_rate = self.voice_service.api_config.audio_playback_sample_rate
+            
+            # Size limits for safe browser playback
+            MIN_SIZE = 12000   # 0.5s at 24kHz - minimum for smooth playback
+            MAX_SIZE = 72000   # 3s at 24kHz - maximum before forcing send
+            
+            # Only process if we have enough data
+            if len(buffer_data) < MIN_SIZE:
                 return
             
-            # Force processing if buffer gets too large (prevent accumulation)
-            if len(buffer_data) > 48000:  # More than 2 seconds at 24kHz
-                logger.warning(f"🎵 Buffer too large ({len(buffer_data)} bytes), forcing processing")
-            
-            # Split audio by silence
-            playback_sample_rate = self.voice_service.api_config.audio_playback_sample_rate
-            segments = self._split_audio_by_silence(buffer_data, sample_rate=playback_sample_rate)
-            
-            if len(segments) > 1:
-                # Mark that streaming is being used
+            # Force send if buffer gets too large (prevent MEDIA_ERR_DECODE)
+            if len(buffer_data) >= MAX_SIZE:
+                logger.info(f"[{conversation_id}] - Buffer reached max size ({len(buffer_data)} bytes), sending chunk")
+                audio_data = await self._convert_pcm_to_audio(buffer_data, sample_rate=playback_sample_rate)
+                if audio_data:
+                    audio_base64 = base64.b64encode(audio_data).decode('utf-8')
+                    await send_audio_chunk(conversation_id, audio_base64)
+                    logger.info(f"[{conversation_id}] - Sent chunk by size limit: {len(audio_data)} bytes {self.api_config.audio_output_format.upper()} (~{len(buffer_data)/48000:.1f}s)")
+                    await asyncio.sleep(0.025)  # 25ms delay between chunks
+                
+                self.audio_buffer[conversation_id] = b''
                 self.streaming_used[conversation_id] = True
+                return
+            
+            # Try silence-based splitting for natural pauses
+            silence_segments = self._detect_silence_segments(buffer_data, sample_rate=playback_sample_rate)
+            
+            if silence_segments:
+                # Split by silence if we found any
+                segments = self._split_audio_by_silence(buffer_data, sample_rate=playback_sample_rate)
                 
-                # Send all segments except the last one (which might be incomplete)
-                for segment in segments[:-1]:
-                    webm_data = await self._convert_pcm_to_webm(segment, sample_rate=playback_sample_rate)
-                    if webm_data:
-                        audio_base64 = base64.b64encode(webm_data).decode('utf-8')
-                        await send_audio_chunk(conversation_id, audio_base64)
-                
-                # Keep the last segment in buffer (might be incomplete)
-                self.audio_buffer[conversation_id] = segments[-1]
-            else:
-                # No silence detected, keep accumulating
-                pass
-                
+                if len(segments) > 1:
+                    # Send all complete segments except the last (might be incomplete)
+                    for segment in segments[:-1]:
+                        # Only send if segment is large enough
+                        if len(segment) >= MIN_SIZE:
+                            audio_data = await self._convert_pcm_to_audio(segment, sample_rate=playback_sample_rate)
+                            if audio_data:
+                                audio_base64 = base64.b64encode(audio_data).decode('utf-8')
+                                await send_audio_chunk(conversation_id, audio_base64)
+                                logger.info(f"[{conversation_id}] - Sent chunk by silence: {len(audio_data)} bytes {self.api_config.audio_output_format.upper()} (~{len(segment)/48000:.1f}s)")
+                                await asyncio.sleep(0.025)  # 25ms delay between chunks
+                    
+                    # Keep the last segment in buffer (might be incomplete)
+                    self.audio_buffer[conversation_id] = segments[-1]
+                    self.streaming_used[conversation_id] = True
+            
         except Exception as e:
             logger.error(f"[{conversation_id}] - Error processing audio buffer: {e}", exc_info=True)
     
@@ -226,32 +236,30 @@ class OpenAIVoiceConversationService:
                 logger.warning(f"[{conversation_id}] - No audio chunks to process")
                 return
             
-            # Send any remaining buffer segments first
+            # Send any remaining audio in buffer (last chunk < 2s)
             if conversation_id in self.audio_buffer and self.audio_buffer[conversation_id]:
-                await self._process_audio_buffer(conversation_id)
-                # Send the final buffer segment
-                if conversation_id in self.audio_buffer and self.audio_buffer[conversation_id]:
-                    playback_sample_rate = self.voice_service.api_config.audio_playback_sample_rate
-                    webm_data = await self._convert_pcm_to_webm(self.audio_buffer[conversation_id], sample_rate=playback_sample_rate)
-                    if webm_data:
-                        audio_base64 = base64.b64encode(webm_data).decode('utf-8')
-                        await send_audio_chunk(conversation_id, audio_base64)
-            
-            # Only send complete audio if streaming was not used
-            if not self.streaming_used.get(conversation_id, False):
-                
-                # Combine all PCM chunks for complete response
-                complete_pcm = b''.join(self.audio_chunks[conversation_id])
-                
-                # Convert PCM16 to WebM for frontend compatibility
                 playback_sample_rate = self.voice_service.api_config.audio_playback_sample_rate
-                webm_data = await self._convert_pcm_to_webm(complete_pcm, sample_rate=playback_sample_rate)
+                buffer_data = self.audio_buffer[conversation_id]
                 
-                # Convert to base64 for WebSocket transmission
-                audio_base64 = base64.b64encode(webm_data).decode('utf-8')
+                logger.info(f"[{conversation_id}] - Sending final buffer: {len(buffer_data)} bytes (~{len(buffer_data)/48000:.1f}s)")
                 
-                # Send the complete audio response
-                await send_audio_response(conversation_id, audio_base64)
+                audio_data = await self._convert_pcm_to_audio(buffer_data, sample_rate=playback_sample_rate)
+                if audio_data:
+                    audio_base64 = base64.b64encode(audio_data).decode('utf-8')
+                    await send_audio_chunk(conversation_id, audio_base64)
+                    logger.info(f"[{conversation_id}] - Sent final chunk: {len(audio_data)} bytes {self.api_config.audio_output_format.upper()}")
+            
+            # If no streaming was used (very short response), send complete audio
+            if not self.streaming_used.get(conversation_id, False) and self.audio_chunks[conversation_id]:
+                complete_pcm = b''.join(self.audio_chunks[conversation_id])
+                logger.info(f"[{conversation_id}] - No streaming used, sending complete audio: {len(complete_pcm)} bytes")
+                
+                playback_sample_rate = self.voice_service.api_config.audio_playback_sample_rate
+                audio_data = await self._convert_pcm_to_audio(complete_pcm, sample_rate=playback_sample_rate)
+                if audio_data:
+                    audio_base64 = base64.b64encode(audio_data).decode('utf-8')
+                    await send_audio_chunk(conversation_id, audio_base64)
+                    logger.info(f"[{conversation_id}] - Sent complete audio: {len(audio_data)} bytes {self.api_config.audio_output_format.upper()}")
             
             # Clear the accumulated chunks and buffer
             self.audio_chunks[conversation_id] = []

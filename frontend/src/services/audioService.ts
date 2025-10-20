@@ -6,6 +6,32 @@
 import { browserCompatibility } from '../utils/browserCompatibility'
 
 export class AudioService {
+  /**
+   * Detect audio format from binary data
+   */
+  private static detectAudioFormat(audioDataBytes: Uint8Array): string {
+    // Check for RIFF/WAV header (52 49 46 46 = "RIFF")
+    if (audioDataBytes.length >= 4 &&
+        audioDataBytes[0] === 0x52 && // R
+        audioDataBytes[1] === 0x49 && // I
+        audioDataBytes[2] === 0x46 && // F
+        audioDataBytes[3] === 0x46) {  // F
+      return 'audio/wav'
+    }
+    
+    // Check for WebM header (1A 45 DF A3)
+    if (audioDataBytes.length >= 4 &&
+        audioDataBytes[0] === 0x1A &&
+        audioDataBytes[1] === 0x45 &&
+        audioDataBytes[2] === 0xDF &&
+        audioDataBytes[3] === 0xA3) {
+      return 'audio/webm'
+    }
+    
+    // Default fallback
+    return 'audio/webm'
+  }
+
   private static uint8ArrayToBase64(uint8Array: Uint8Array): string {
     const CHUNK_SIZE = 0x8000 // 32k chunks
     let result = ''
@@ -43,9 +69,9 @@ export class AudioService {
       const audioDataBytes = Uint8Array.from(atob(audioData), c => c.charCodeAt(0))
       console.log('🎵 Decoded audio data:', audioDataBytes.length, 'bytes')
       
-      // Use browser-specific MIME type
-      const mimeType = capabilities.preferredAudioFormat || 'audio/webm'
-      console.log('🎵 Using MIME type:', mimeType, 'for', capabilities.browserName)
+      // Auto-detect format from binary data (WAV or WebM)
+      const mimeType = this.detectAudioFormat(audioDataBytes)
+      console.log('🎵 Detected audio format:', mimeType, 'from binary data')
       
       // Create audio blob with browser-appropriate MIME type
       const audioBlob = new Blob([audioDataBytes], { type: mimeType })
@@ -60,23 +86,16 @@ export class AudioService {
       const performanceConfig = browserCompatibility.getPerformanceRecommendations()
       audio.preload = performanceConfig.preloadStrategy
       
-      // Add detailed error logging
-      audio.addEventListener('error', (e) => {
-        console.error('❌ Audio element error:', e)
-        console.error('❌ Audio error details:', {
-          error: audio.error,
-          networkState: audio.networkState,
-          readyState: audio.readyState,
-          src: audio.src,
-          blobSize: audioBlob.size,
-          blobType: audioBlob.type
-        })
-      })
-      
+      // Add detailed event logging for debugging
       audio.addEventListener('loadstart', () => console.log('🎵 Audio load started'))
-      audio.addEventListener('loadedmetadata', () => console.log('🎵 Audio metadata loaded'))
+      audio.addEventListener('loadedmetadata', () => {
+        console.log('🎵 Audio metadata loaded, duration:', audio.duration, 'seconds')
+      })
       audio.addEventListener('canplay', () => console.log('🎵 Audio can play'))
-      audio.addEventListener('canplaythrough', () => console.log('🎵 Audio can play through'))
+      audio.addEventListener('loadeddata', () => console.log('🎵 Audio data loaded'))
+      
+      // Note: Don't add oncanplaythrough or onerror here
+      // Let the caller set those handlers to avoid conflicts
       
       return audio
     } catch (error) {

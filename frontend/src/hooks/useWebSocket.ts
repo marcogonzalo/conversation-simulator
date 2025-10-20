@@ -61,8 +61,10 @@ export function useWebSocket({ onMessage, onConnect, onDisconnect, onAnalysis }:
       ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data)
-          console.log('📨 Parsed WebSocket message:', data)
-          
+          if (data.type !== 'transcribed_text' && data.role != 'ai') {
+            console.log('📨 Parsed WebSocket message:', data)
+          }
+
           // Ignore audio messages if conversation is ending
           if (isEnding && data.type === 'audio') {
             console.log('📨 Ignoring audio message during conversation end')

@@ -401,7 +401,16 @@ export function ConversationInterface({
             }
             
             audio.onerror = (e) => {
-              console.error('Audio error:', e)
+              console.error('❌ Audio playback error:', e)
+              console.error('❌ Audio error details:', {
+                error: audio.error,
+                code: audio.error?.code,
+                message: audio.error?.message,
+                networkState: audio.networkState,
+                readyState: audio.readyState,
+                src: audio.src,
+                duration: audio.duration
+              })
               setIsPlaying(false)
               setCurrentAudio(null)
             }

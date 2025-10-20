@@ -13,7 +13,13 @@ alwaysApply: true
 - Usa conventional commits para changelog automático
 - Usa branches para features grandes, merge a main cuando esté completo
 - Escribe los commits y el código en inglés
-- No se debe generar un commit sin contar con mi aprobación
+
+### ⚠️ REGLA CRÍTICA: Aprobación de Commits
+
+- **NUNCA** generes, ejecutes o propongas commits sin aprobación explícita del usuario
+- **SIEMPRE** espera autorización antes de hacer commit de cualquier cambio
+- Prepara los cambios y muestra un resumen, pero NO ejecutes `git commit` sin permiso
+- Esta regla aplica incluso si todos los tests pasan y el código está perfecto
 
 ## Documentación
 
@@ -28,6 +34,8 @@ alwaysApply: true
 - Usa feature flags para desarrollo incremental
 - Mantén branches pequeños y merge frecuente
 - Implementa reviews obligatorias para cambios en código crítico
+- **CRÍTICO**: Cada feature o fix debe incluir sus tests actualizados ANTES de considerarse completo
+- No dejes tareas a medias: implementación + tests + verificación = tarea completa
 
 ## Comunicación con IA
 

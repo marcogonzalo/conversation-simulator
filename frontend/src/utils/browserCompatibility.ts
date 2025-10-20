@@ -278,14 +278,14 @@ export class BrowserCompatibility {
     switch (capabilities.browserName) {
       case 'Firefox':
         return {
-          vadThreshold: 15, // Increased for more robust detection, avoids cutting during natural pauses
+          vadThreshold: 25, // Balanced threshold: detects sustained vowels, reduces feedback
           silenceDuration: 2000, // 2s for natural conversation flow
           audioChunkSize: 1024,
           preloadStrategy: 'metadata'
         };
       case 'Safari':
         return {
-          vadThreshold: 15, // Increased for more robust detection, avoids cutting during natural pauses
+          vadThreshold: 25, // Balanced threshold: detects sustained vowels, reduces feedback
           silenceDuration: 2000, // 2s for natural conversation flow
           audioChunkSize: 2048,
           preloadStrategy: 'auto'
@@ -293,14 +293,14 @@ export class BrowserCompatibility {
       case 'Chrome':
       case 'Edge':
         return {
-          vadThreshold: 15, // Increased for more robust detection, avoids cutting during natural pauses
+          vadThreshold: 25, // Balanced threshold: detects sustained vowels, reduces feedback
           silenceDuration: 2000, // 2s for natural conversation flow
           audioChunkSize: 1024,
           preloadStrategy: 'auto'
         };
       default:
         return {
-          vadThreshold: 15, // Increased for more robust detection, avoids cutting during natural pauses
+          vadThreshold: 25, // Balanced threshold: detects sustained vowels, reduces feedback
           silenceDuration: 2000, // 2s for natural conversation flow
           audioChunkSize: 1024,
           preloadStrategy: 'metadata'

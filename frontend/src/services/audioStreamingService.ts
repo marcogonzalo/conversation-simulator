@@ -12,6 +12,7 @@ export class AudioStreamingService {
   private onPlaybackStart?: () => void
   private onPlaybackEnd?: () => void
   private minBufferSize = 1  // Minimum chunks to buffer before playback (1 for immediate playback)
+  private maxQueueSize = 30  // Maximum chunks in queue to prevent memory issues
   private isBuffering = true // Buffer first chunk before playing
 
   constructor(
@@ -71,6 +72,31 @@ export class AudioStreamingService {
       // Apply browser-specific preload strategy
       audio.preload = performanceConfig.preloadStrategy
       
+      // Add error handler for playback issues
+      audio.onerror = (e) => {
+        console.error('❌ Audio playback error:', e)
+        console.error('Audio details:', {
+          src: audio.src,
+          error: audio.error,
+          networkState: audio.networkState,
+          readyState: audio.readyState
+        })
+      }
+      
+      // Add load handler to confirm audio is ready
+      audio.onloadeddata = () => {
+        console.log('✅ Audio loaded successfully, duration:', audio.duration, 'seconds')
+      }
+      
+      // Check queue size limit to prevent memory issues
+      if (this.audioQueue.length >= this.maxQueueSize) {
+        console.warn(`⚠️ Audio queue full (${this.audioQueue.length}/${this.maxQueueSize}), dropping oldest chunk`)
+        const dropped = this.audioQueue.shift()
+        if (dropped) {
+          URL.revokeObjectURL(dropped.src)
+        }
+      }
+      
       // Add to queue
       this.audioQueue.push(audio)
       console.log(`🎵 Added audio chunk to queue (queue size: ${this.audioQueue.length})`)
@@ -102,23 +128,32 @@ export class AudioStreamingService {
 
     const audio = this.audioQueue.shift()!
     this.currentAudio = audio
+    
+    // Set isPlaying before anything else to prevent race conditions
+    const wasPlaying = this.isPlaying
     this.isPlaying = true
 
-    // Notify playback start (only for first chunk)
-    if (this.audioQueue.length === 0) {
+    console.log(`🎵 Playing audio (${this.audioQueue.length} remaining in queue)`)
+
+    // Notify playback start ONLY on the first chunk
+    if (!wasPlaying) {
       this.onPlaybackStart?.()
     }
 
     // Set up event handlers
     audio.oncanplaythrough = async () => {
+      console.log('🎵 Audio can play through, starting playback...')
       const playSuccess = await browserCompatibility.playAudioWithUserGesture(audio)
       if (!playSuccess) {
-        console.error('AudioStreamingService: Audio play failed, trying next chunk')
+        console.error('❌ Audio play failed (user gesture required?), trying next chunk')
         this.playNext() // Try next chunk
+      } else {
+        console.log('✅ Audio playback started successfully')
       }
     }
 
     audio.onended = () => {
+      console.log('🎵 Audio ended, cleaning up and playing next')
       URL.revokeObjectURL(audio.src)
       
       // Immediate transition for smoother playback
@@ -126,12 +161,15 @@ export class AudioStreamingService {
     }
 
     audio.onerror = (e) => {
-      console.error('❌ Audio chunk error:', e)
+      console.error('❌ Audio chunk error during playback:', e, audio.error)
       URL.revokeObjectURL(audio.src)
+      
+      // Keep isPlaying true if there are more chunks to prevent recording during errors
+      console.log(`⚠️ Audio error, ${this.audioQueue.length} chunks remaining`)
       
       // Small delay before trying next chunk
       setTimeout(() => {
-        this.playNext() // Try next chunk
+        this.playNext() // Try next chunk (will set isPlaying = false if queue empty)
       }, 100)
     }
 
