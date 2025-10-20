@@ -10,6 +10,7 @@ from src.conversation.application.services.openai_voice_conversation_service imp
 from src.conversation.application.services.conversation_application_service import ConversationApplicationService
 from src.audio.application.services.openai_voice_application_service import OpenAIVoiceApplicationService
 from src.persona.infrastructure.repositories.yaml_persona_repository import YAMLPersonaRepository
+from src.shared.infrastructure.external_apis.api_config import APIConfig
 
 
 @pytest.mark.unit
@@ -22,11 +23,13 @@ class TestChunkAggregation:
         self.conversation_service.send_message = AsyncMock()
         self.voice_service = AsyncMock(spec=OpenAIVoiceApplicationService)
         self.persona_repo = AsyncMock(spec=YAMLPersonaRepository)
+        self.api_config = APIConfig()
         
         self.service = OpenAIVoiceConversationService(
             conversation_service=self.conversation_service,
             voice_service=self.voice_service,
-            persona_repository=self.persona_repo
+            persona_repository=self.persona_repo,
+            api_config=self.api_config
         )
     
     @pytest.mark.asyncio
