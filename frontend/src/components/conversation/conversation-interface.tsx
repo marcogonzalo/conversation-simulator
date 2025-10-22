@@ -82,7 +82,7 @@ export function ConversationInterface({
         setIsPlaying(true)
       },
       () => {
-        console.log('🎵 Audio streaming ended')
+        // CRITICAL: Force isPlaying to false immediately before any async operations
         setIsPlaying(false)
         setCurrentAudio(null)
         
@@ -91,11 +91,15 @@ export function ConversationInterface({
         
         // Use dynamic delay based on streaming state
         const delay = getAudioEndDelay(false)
+        
+        // Use requestAnimationFrame to ensure React state has updated before setTimeout
+        requestAnimationFrame(() => {
         setTimeout(() => {
           if (!isEnding) {
             startRecording()
           }
         }, delay)
+        })
       }
     )
     
@@ -366,6 +370,8 @@ export function ConversationInterface({
           audioStreamingRef.current.addAudioChunk(data.audio_data)
           // Reset waiting state when AI starts responding with audio
           setIsWaitingForResponse(false)
+          // Reset audio send flag to allow next recording
+          resetAudioSendFlag()
         }
         break
         
@@ -501,7 +507,7 @@ export function ConversationInterface({
   // Only show permission component if not connected and permission not granted
   const shouldShowPermissionComponent = !isConnected && permissionStatus !== 'granted'
 
-  const { isRecording, isSpeaking, startRecording, stopRecording, cleanup, resetCleanupState } = useAudioRecording({
+  const { isRecording, isSpeaking, startRecording, stopRecording, cleanup, resetCleanupState, resetAudioSendFlag } = useAudioRecording({
     onAudioReady: handleAudioReady,
     isWaitingForResponse,
     isEnding,
@@ -511,6 +517,7 @@ export function ConversationInterface({
       setIsWaitingForResponse(false)
     }
   })
+
 
 
   // Scroll to bottom when new messages arrive

@@ -159,9 +159,10 @@
 
 ## Known Issues and Limitations
 
-- **Audio ocasional en silencio**: Problema menor que ocurre esporádicamente durante la reproducción
+- **Transcripciones partidas de IA**: OpenAI devuelve transcripciones en chunks que se muestran separados en la UI
+- **Distorsión de audio en Chrome**: Problema de memoria que causa distorsión progresiva hacia el final de conversaciones largas
+- **Detección de respiración**: VAD detecta respiraciones profundas como voz y las envía como audio
 - **Compatibilidad móvil**: Requiere testing en dispositivos móviles
-- **Compatibilidad entre navegadores**: En Firefox la carga de audio es significativamente más lenta; requiere optimización y testing cruzado
 - **Calidad de audio**: Dependiente de la calidad del micrófono del usuario
 - **Conexión de red**: Requiere conexión estable para streaming
 - **Testing de personalidades**: Pendiente validación completa de los 3 perfiles de persona
@@ -245,7 +246,7 @@
 
 **Nota**: Se ha completado exitosamente la Fase 2 (Experiencia Conversacional). La Fase 3 está en progreso. Las Fases 4 y 5 están pendientes.
 
-**La arquitectura DDD está estructurada con 80+ archivos Python (mayormente estructura). La interfaz visual está terminada. La integración con OpenAI voice-to-voice está completada y funcionando. Los sistemas de análisis y conversación tienen estructura definida pero implementación pendiente. El sistema VAD está optimizado. El test suite está estructurado y configurado. Los próximos pasos son implementar análisis post-conversación real y testing de personalidades.**
+**La arquitectura DDD está estructurada con 80+ archivos Python (mayormente estructura). La interfaz visual está terminada. La integración con OpenAI voice-to-voice está completada y funcionando. Los sistemas de análisis y conversación tienen estructura definida pero implementación pendiente. El sistema VAD está optimizado con threshold de silencio de 1200ms. El test suite está estructurado y configurado. Los próximos pasos son implementar análisis post-conversación real y testing de personalidades.**
 
 ## Implementaciones Recientes Destacadas
 
@@ -296,6 +297,15 @@
 - **Tests de Análisis**: Tests completos para YAML Configuration
 - **Tests de Aplicación**: Tests completos para Conversation Application Service
 - **Tests de OpenAI**: Tests completos para OpenAI Voice Conversation Service
+
+### Optimizaciones de Audio - Implementación Reciente ✅
+
+- **Threshold de silencio optimizado**: Reducido de 2000ms a 1200ms para cortar más rápido grabaciones activadas por ruido
+- **Protección contra envíos múltiples**: Flag `isSendingAudioRef` previene envíos simultáneos de audio al backend
+- **Reseteo de estado VAD**: Limpieza completa de refs de VAD al inicio de cada grabación para prevenir race conditions
+- **Fallback de 30 segundos**: Mecanismo de seguridad que fuerza el stop de grabación si no se detecta voz
+- **Logs optimizados**: Eliminación de logs de debugging innecesarios, manteniendo solo logs esenciales
+- **Compatibilidad mejorada**: Sistema funciona correctamente en Firefox y Chrome con optimizaciones específicas
 
 ## Future Development (Post-MVP)
 

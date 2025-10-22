@@ -29,6 +29,9 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
   const silenceStartTimeRef = useRef<number | null>(null)
   const lastVoiceTimeRef = useRef(0)
   const isProcessingStopRef = useRef(false)
+  const lastSilenceResetRef = useRef(0) // Track last silence timer reset to prevent rapid resets
+  const recordingStartTimeRef = useRef(0) // Track when recording started for fallback
+  const isSendingAudioRef = useRef(false) // Prevent multiple simultaneous audio sends
 
   const stopRecording = useCallback(() => {
     // Prevent multiple calls
@@ -142,10 +145,12 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
             setIsSpeaking(false)
           }
           
-          // Start silence timer only if not already started
-          if (silenceStartTimeRef.current === null) {
+          // Start silence timer only if not already started AND enough time has passed since last reset
+          const timeSinceLastReset = now - lastSilenceResetRef.current
+          if (silenceStartTimeRef.current === null && timeSinceLastReset > 500) { // 500ms debounce
             silenceStartTimeRef.current = now
-            console.log(`🎤 Silence timer started`)
+            lastSilenceResetRef.current = now
+            console.log(`🎤 Silence timer started (debounced)`)
           }
           
           // If waiting for response, stop VAD processing to prevent audio overlap
@@ -171,6 +176,14 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
               console.log(`🎤 Stopping recording due to ${silenceDuration}ms of silence`)
               stopRecording()
             }
+          }
+          
+          // Fallback: Force stop recording after 30 seconds if no voice detected
+          const recordingDuration = now - recordingStartTimeRef.current
+          if (recordingDuration > 30000 && !hasDetectedVoiceRef.current) {
+            isProcessingStopRef.current = true
+            console.log(`🎤 Fallback: Stopping recording after 30s without voice detection`)
+            stopRecording()
           }
         }
       }
@@ -204,25 +217,23 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
 
   const startRecording = useCallback(async () => {
     try {
-      console.log('🎤 Starting recording...')
+      // CRITICAL: Reset all VAD state refs FIRST to prevent race conditions
+      hasDetectedVoiceRef.current = false
+      silenceStartTimeRef.current = null
+      lastVoiceTimeRef.current = 0
+      isProcessingStopRef.current = false
+      recordingStartTimeRef.current = Date.now() // Set this early to prevent fallback from firing immediately
+      lastSilenceResetRef.current = Date.now()
       
       // Check if component is cleaned up or unmounted
       if (isCleanedUpRef.current || !isMountedRef.current) {
-        console.log('🎤 Cannot start recording - component cleaned up or unmounted')
         return
       }
       
       // Don't start recording if audio is currently playing to prevent feedback
       if (isPlaying) {
-        console.log('🎤 Cannot start recording - audio is currently playing (preventing feedback)')
         return
       }
-      
-      // Reset VAD state variables for new recording
-      hasDetectedVoiceRef.current = false
-      silenceStartTimeRef.current = null
-      lastVoiceTimeRef.current = 0
-      isProcessingStopRef.current = false
       
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       streamRef.current = stream
@@ -262,6 +273,13 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
         if (audioChunksRef.current.length === 0) {
           console.log('🎤 No audio chunks recorded - skipping send')
         } else if (audioBlob.size > minSize) {
+          // Prevent multiple simultaneous audio sends
+          if (isSendingAudioRef.current) {
+            console.warn('⚠️ Audio send already in progress - skipping duplicate send')
+            return
+          }
+          
+          isSendingAudioRef.current = true
           console.log(`🎤 Audio ready: ${audioBlob.size} bytes (minimum: ${minSize} bytes)`)
           onAudioReady(audioBlob)
         } else {
@@ -286,8 +304,11 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
     } catch (error) {
       console.error('❌ Error starting recording:', error)
     }
-  }, [setupVoiceActivityDetection, onAudioReady, isPlaying])
+  }, [setupVoiceActivityDetection, onAudioReady, isPlaying, isEnding, isWaitingForResponse])
 
+  const resetAudioSendFlag = useCallback(() => {
+    isSendingAudioRef.current = false
+  }, [])
 
   const cleanup = useCallback(() => {
     // Mark as cleaned up immediately
@@ -329,6 +350,7 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
     
     // Reset all states
     setIsRecording(false)
+    isSendingAudioRef.current = false
   }, [isRecording])
 
   // Cleanup when ending
@@ -414,6 +436,7 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
     startRecording,
     stopRecording,
     cleanup,
-    resetCleanupState
+    resetCleanupState,
+    resetAudioSendFlag
   }
 }

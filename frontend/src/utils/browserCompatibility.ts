@@ -279,14 +279,14 @@ export class BrowserCompatibility {
       case 'Firefox':
         return {
           vadThreshold: 25, // Balanced threshold: detects sustained vowels, reduces feedback
-          silenceDuration: 2000, // 2s for natural conversation flow
+          silenceDuration: 1200, // 1.2s for faster cutoff of noise-triggered recordings
           audioChunkSize: 1024,
           preloadStrategy: 'metadata'
         };
       case 'Safari':
         return {
           vadThreshold: 25, // Balanced threshold: detects sustained vowels, reduces feedback
-          silenceDuration: 2000, // 2s for natural conversation flow
+          silenceDuration: 1200, // 1.2s for faster cutoff of noise-triggered recordings
           audioChunkSize: 2048,
           preloadStrategy: 'auto'
         };
@@ -294,14 +294,14 @@ export class BrowserCompatibility {
       case 'Edge':
         return {
           vadThreshold: 25, // Balanced threshold: detects sustained vowels, reduces feedback
-          silenceDuration: 2000, // 2s for natural conversation flow
+          silenceDuration: 1200, // 1.2s for faster cutoff of noise-triggered recordings
           audioChunkSize: 1024,
           preloadStrategy: 'auto'
         };
       default:
         return {
           vadThreshold: 25, // Balanced threshold: detects sustained vowels, reduces feedback
-          silenceDuration: 2000, // 2s for natural conversation flow
+          silenceDuration: 1200, // 1.2s for faster cutoff of noise-triggered recordings
           audioChunkSize: 1024,
           preloadStrategy: 'metadata'
         };

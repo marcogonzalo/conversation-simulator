@@ -119,10 +119,14 @@ export class AudioStreamingService {
    * Play the next audio in queue
    */
   private playNext(): void {
+    
     if (this.audioQueue.length === 0) {
       this.isPlaying = false
       this.currentAudio = null
-      this.onPlaybackEnd?.()
+      
+      if (this.onPlaybackEnd) {
+        this.onPlaybackEnd()
+      }
       return
     }
 
@@ -133,7 +137,6 @@ export class AudioStreamingService {
     const wasPlaying = this.isPlaying
     this.isPlaying = true
 
-    console.log(`🎵 Playing audio (${this.audioQueue.length} remaining in queue)`)
 
     // Notify playback start ONLY on the first chunk
     if (!wasPlaying) {
@@ -153,10 +156,7 @@ export class AudioStreamingService {
     }
 
     audio.onended = () => {
-      console.log('🎵 Audio ended, cleaning up and playing next')
       URL.revokeObjectURL(audio.src)
-      
-      // Immediate transition for smoother playback
       this.playNext() // Play next chunk immediately
     }
 
