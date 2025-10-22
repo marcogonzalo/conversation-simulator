@@ -6,8 +6,9 @@
 graph TB
     subgraph "Frontend (Next.js)"
         UI[User Interface]
-        Audio[Web Audio API]
+        Audio[Web Audio API + VAD]
         WS[WebSocket Client]
+        Stream[Audio Streaming Service]
     end
 
     subgraph "Backend (FastAPI + DDD)"
@@ -22,8 +23,9 @@ graph TB
         Supabase[Supabase DB]
     end
 
-    UI --> API
+    UI --> Audio
     Audio --> WS
+    Stream --> Audio
     WS --> API
     API --> APP
     APP --> DOM
@@ -508,6 +510,9 @@ frontend/
 - **Calidad**: Configurar OpenAI para máxima calidad
 - **Error Handling**: Manejo robusto de fallos de audio
 - **Cross-browser**: Compatibilidad con navegadores modernos
+- **VAD Optimization**: Threshold de silencio optimizado (1200ms)
+- **Memory Management**: Limpieza automática de chunks de audio
+- **Race Condition Prevention**: Protección contra envíos múltiples simultáneos
 
 ### Personality Consistency Path
 

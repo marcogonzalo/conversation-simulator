@@ -19,8 +19,9 @@ class APIConfig:
         
         # Audio settings
         self.audio_channels = int(os.getenv("AUDIO_CHANNELS", "1"))
-        self.audio_format = os.getenv("AUDIO_FORMAT", "wav")
         self.audio_playback_sample_rate = int(os.getenv("AUDIO_PLAYBACK_SAMPLE_RATE", "24000"))  # Playback sample rate for frontend
+        # Audio output format for AI responses: 'webm' (default, compressed, better for streaming) or 'wav' (uncompressed, larger)
+        self.audio_output_format = os.getenv("AUDIO_OUTPUT_FORMAT", "webm")
 
         
         # AI settings (for fallback text conversations)
@@ -106,7 +107,7 @@ class APIConfig:
         return {
             "sample_rate": self.audio_playback_sample_rate,
             "channels": self.audio_channels,
-            "format": self.audio_format,
+            "output_format": self.audio_output_format,
             "min_duration_ms": self.audio_min_duration_ms,
             "min_bytes_pcm": self.audio_min_bytes_pcm,
             "min_bytes_webm": self.audio_min_bytes_webm

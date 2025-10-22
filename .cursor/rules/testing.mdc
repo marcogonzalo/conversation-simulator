@@ -21,6 +21,14 @@ alwaysApply: true
 - Incluye casos edge en todos los tests
 - Valida escenarios de error y límites
 
+## Mantenimiento de Tests (CRÍTICO)
+
+- **SIEMPRE** actualiza o agrega tests cuando implementes, modifiques o corrijas funcionalidades
+- **NUNCA** dejes una implementación sin sus tests correspondientes
+- Verifica que todos los tests pasen después de cada cambio
+- Si modificas código existente, actualiza sus tests inmediatamente
+- Los tests deben reflejar el comportamiento actual del código en todo momento
+
 ## Estructura de Tests
 
 - Usa markers de pytest (unit, integration, slow, audio, websocket, api, database)

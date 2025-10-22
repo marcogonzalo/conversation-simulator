@@ -13,6 +13,8 @@ Muchos agentes de ventas carecen de oportunidades realistas y accesibles para pr
 - **Inmersión Total**: Acentos regionales y características de voz y personalidad que hagan la experiencia más creíble
 - **Simplicidad**: Diseño minimalista que elimine fricciones y facilite la adopción
 - **Accesibilidad**: Cumplir estándares WCAG para usuarios con discapacidades
+- **Respuesta Rápida**: Conversación ágil con respuestas de IA en <1.2 segundos después de que el usuario termine de hablar
+- **Calidad de Audio**: Audio claro sin distorsiones ni interrupciones durante conversaciones largas
 
 ## Success Metrics
 

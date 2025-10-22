@@ -9,6 +9,8 @@
 - **Tailwind CSS**: Styling utilitario, modo oscuro por defecto
 - **Web Audio API**: Captura y reproducción de audio
 - **WebSockets**: Comunicación en tiempo real con backend
+- **Voice Activity Detection (VAD)**: Detección de voz con threshold optimizado (1200ms)
+- **Audio Streaming Service**: Servicio para reproducción secuencial de chunks de audio
 
 ### Backend
 
@@ -196,6 +198,30 @@ python:3.11-slim
 - **Health Checks**: Endpoints de salud para servicios
 - **Error Tracking**: Sentry o similar (futuro)
 
+## Audio Processing Optimizations
+
+### Voice Activity Detection (VAD)
+
+- **Threshold de silencio**: 1200ms (optimizado desde 2000ms)
+- **Dual threshold strategy**: HIGH (20) para iniciar detección, LOW (5) para mantener
+- **Debounce**: 500ms para prevenir reinicios constantes del timer de silencio
+- **Fallback de seguridad**: 30 segundos máximo de grabación sin detección de voz
+- **Reseteo de estado**: Limpieza completa de refs VAD al inicio de cada grabación
+
+### Audio Streaming
+
+- **Chunk-based playback**: Reproducción secuencial de chunks de audio
+- **Queue management**: Cola de audio con transiciones suaves
+- **Memory cleanup**: Limpieza automática de URLs de audio después de reproducción
+- **Error handling**: Recuperación automática en fallos de reproducción
+
+### Browser Compatibility
+
+- **Firefox**: Configuración optimizada con sample rate matching
+- **Chrome/Edge**: Configuración estándar con preload automático
+- **Safari**: Configuración conservadora con preload automático
+- **Audio Context**: Recreación automática para compatibilidad de sample rate
+
 ## Security Considerations
 
 - **API Keys**: Variables de entorno, nunca en código
@@ -203,6 +229,7 @@ python:3.11-slim
 - **Rate Limiting**: Protección contra abuso de APIs
 - **Audio Privacy**: No almacenar conversaciones (GDPR)
 - **HTTPS**: Obligatorio para WebRTC en producción
+- **Protección contra envíos múltiples**: Flag de bloqueo para prevenir envíos simultáneos de audio
 
 ## Technical Decision Rationale
 

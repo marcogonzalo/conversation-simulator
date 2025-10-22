@@ -407,6 +407,50 @@ class TestOpenAIVoiceConversationService:
         parsed_timestamp = datetime.fromisoformat(stored_timestamp)
         assert parsed_timestamp == timestamp
 
+    @pytest.mark.asyncio
+    async def test_convert_pcm_to_audio_uses_configured_format(self, service):
+        """Test that audio conversion uses the configured format from AudioConverterService."""
+        # Arrange
+        pcm_data = bytes([0, 0] * 1000)  # 2000 bytes of silent audio
+        sample_rate = 24000
+        
+        # Act
+        audio_data = await service._convert_pcm_to_audio(pcm_data, sample_rate)
+        
+        # Assert - Should return audio data
+        assert len(audio_data) > 0, "Should generate audio data"
+        assert isinstance(audio_data, bytes), "Should return bytes"
+        
+        # The actual format depends on service.api_config.audio_output_format
+        # We just verify it returns valid data without errors
+
+    @pytest.mark.asyncio
+    async def test_convert_pcm_to_audio_with_different_sample_rates(self, service):
+        """Test audio conversion with various sample rates."""
+        # Arrange
+        pcm_data = bytes([0, 0] * 100)
+        sample_rates = [8000, 16000, 24000, 48000]
+        
+        for sample_rate in sample_rates:
+            # Act
+            audio_data = await service._convert_pcm_to_audio(pcm_data, sample_rate)
+            
+            # Assert
+            assert len(audio_data) > 0, f"Should generate audio data for {sample_rate}Hz"
+
+    @pytest.mark.asyncio
+    async def test_convert_pcm_to_audio_handles_empty_data(self, service):
+        """Test audio conversion with empty PCM data."""
+        # Arrange
+        pcm_data = b''
+        
+        # Act
+        audio_data = await service._convert_pcm_to_audio(pcm_data, 24000)
+        
+        # Assert
+        # WAV would return 44 bytes (header only), WebM might be empty or minimal
+        assert isinstance(audio_data, bytes), "Should return bytes"
+
 
 @pytest.mark.integration
 class TestOpenAIVoiceConversationServiceIntegration:

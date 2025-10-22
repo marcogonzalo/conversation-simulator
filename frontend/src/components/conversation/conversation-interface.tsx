@@ -82,7 +82,7 @@ export function ConversationInterface({
         setIsPlaying(true)
       },
       () => {
-        console.log('🎵 Audio streaming ended')
+        // CRITICAL: Force isPlaying to false immediately before any async operations
         setIsPlaying(false)
         setCurrentAudio(null)
         
@@ -91,11 +91,15 @@ export function ConversationInterface({
         
         // Use dynamic delay based on streaming state
         const delay = getAudioEndDelay(false)
+        
+        // Use requestAnimationFrame to ensure React state has updated before setTimeout
+        requestAnimationFrame(() => {
         setTimeout(() => {
           if (!isEnding) {
             startRecording()
           }
         }, delay)
+        })
       }
     )
     
@@ -366,6 +370,8 @@ export function ConversationInterface({
           audioStreamingRef.current.addAudioChunk(data.audio_data)
           // Reset waiting state when AI starts responding with audio
           setIsWaitingForResponse(false)
+          // Reset audio send flag to allow next recording
+          resetAudioSendFlag()
         }
         break
         
@@ -401,7 +407,16 @@ export function ConversationInterface({
             }
             
             audio.onerror = (e) => {
-              console.error('Audio error:', e)
+              console.error('❌ Audio playback error:', e)
+              console.error('❌ Audio error details:', {
+                error: audio.error,
+                code: audio.error?.code,
+                message: audio.error?.message,
+                networkState: audio.networkState,
+                readyState: audio.readyState,
+                src: audio.src,
+                duration: audio.duration
+              })
               setIsPlaying(false)
               setCurrentAudio(null)
             }
@@ -492,7 +507,7 @@ export function ConversationInterface({
   // Only show permission component if not connected and permission not granted
   const shouldShowPermissionComponent = !isConnected && permissionStatus !== 'granted'
 
-  const { isRecording, isSpeaking, startRecording, stopRecording, cleanup, resetCleanupState } = useAudioRecording({
+  const { isRecording, isSpeaking, startRecording, stopRecording, cleanup, resetCleanupState, resetAudioSendFlag } = useAudioRecording({
     onAudioReady: handleAudioReady,
     isWaitingForResponse,
     isEnding,
@@ -500,8 +515,14 @@ export function ConversationInterface({
     onStartRecording: () => {
       // Reset waiting state when user starts recording
       setIsWaitingForResponse(false)
+    },
+    onFallbackStop: () => {
+      // End the call when fallback is triggered
+      console.log('🎤 Fallback triggered - ending call')
+      endCall()
     }
   })
+
 
 
   // Scroll to bottom when new messages arrive

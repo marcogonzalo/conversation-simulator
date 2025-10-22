@@ -67,12 +67,14 @@ def get_voice_conversation_service(
     transcription_service: TranscriptionFileService = Depends(lambda: TranscriptionFileService())
 ) -> OpenAIVoiceConversationService:
     """Get OpenAI voice conversation service instance."""
+    api_config = APIConfig()
     return OpenAIVoiceConversationService(
         conversation_service=conversation_service,
         voice_service=voice_service,
         persona_repository=persona_repo,
         enhanced_repository=enhanced_repo,
-        transcription_service=transcription_service
+        transcription_service=transcription_service,
+        api_config=api_config
     )
 
 # WebSocket connection manager
