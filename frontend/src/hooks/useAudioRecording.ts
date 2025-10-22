@@ -8,9 +8,10 @@ interface UseAudioRecordingProps {
   isEnding: boolean
   isPlaying?: boolean
   onStartRecording?: () => void // Callback when recording starts
+  onFallbackStop?: () => void // Callback when fallback stops recording
 }
 
-export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding, isPlaying = false, onStartRecording }: UseAudioRecordingProps) {
+export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding, isPlaying = false, onStartRecording, onFallbackStop }: UseAudioRecordingProps) {
   const [isRecording, setIsRecording] = useState(false)
   const [isSpeaking, setIsSpeaking] = useState(false)
   
@@ -32,6 +33,7 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
   const lastSilenceResetRef = useRef(0) // Track last silence timer reset to prevent rapid resets
   const recordingStartTimeRef = useRef(0) // Track when recording started for fallback
   const isSendingAudioRef = useRef(false) // Prevent multiple simultaneous audio sends
+  const isFallbackStopRef = useRef(false) // Track if recording was stopped by fallback
 
   const stopRecording = useCallback(() => {
     // Prevent multiple calls
@@ -62,6 +64,12 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
       // Check if component is cleaned up or unmounted
       if (isCleanedUpRef.current || !isMountedRef.current) {
         return
+      }
+      
+      // CRITICAL: Clear any existing VAD interval before creating a new one
+      if (vadIntervalRef.current) {
+        clearInterval(vadIntervalRef.current)
+        vadIntervalRef.current = null
       }
       
       const capabilities = browserCompatibility.detectCapabilities()
@@ -177,13 +185,24 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
               stopRecording()
             }
           }
-          
-          // Fallback: Force stop recording after 30 seconds if no voice detected
-          const recordingDuration = now - recordingStartTimeRef.current
-          if (recordingDuration > 30000 && !hasDetectedVoiceRef.current) {
-            isProcessingStopRef.current = true
-            console.log(`🎤 Fallback: Stopping recording after 30s without voice detection`)
-            stopRecording()
+        }
+        
+        // Fallback: Force stop recording after 15 seconds WITHOUT voice detection
+        // Calculate time since recording started
+        const timeSinceRecordingStart = now - recordingStartTimeRef.current
+        
+        // Trigger fallback ONLY if:
+        // 1. 15 seconds have passed since recording started
+        // 2. NO voice was EVER detected in this recording (hasDetectedVoiceRef is false)
+        // 3. Not waiting for AI response
+        if (timeSinceRecordingStart > 15000 && !hasDetectedVoiceRef.current && !isWaitingForResponse) {
+          isProcessingStopRef.current = true
+          isFallbackStopRef.current = true // Mark as fallback stop
+          console.log(`🎤 Fallback: Stopping recording after 15s without voice detection - ending call`)
+          stopRecording()
+          // Call fallback callback to end the call
+          if (onFallbackStop) {
+            onFallbackStop()
           }
         }
       }
@@ -222,7 +241,7 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
       silenceStartTimeRef.current = null
       lastVoiceTimeRef.current = 0
       isProcessingStopRef.current = false
-      recordingStartTimeRef.current = Date.now() // Set this early to prevent fallback from firing immediately
+      isFallbackStopRef.current = false // Reset fallback flag
       lastSilenceResetRef.current = Date.now()
       
       // Check if component is cleaned up or unmounted
@@ -269,6 +288,13 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
         const minSize = apiConfig.audio.minBytesWebm
         const minDurationMs = apiConfig.audio.minDurationMs
         
+        // Check if this was a fallback stop - don't send audio if no voice was detected
+        if (isFallbackStopRef.current) {
+          console.log('🎤 Fallback stop detected - skipping audio send to prevent unwanted responses')
+          isFallbackStopRef.current = false // Reset flag
+          return
+        }
+        
         // Check if we have any audio data at all
         if (audioChunksRef.current.length === 0) {
           console.log('🎤 No audio chunks recorded - skipping send')
@@ -294,6 +320,11 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
       }
       
       mediaRecorder.start()
+      
+      // Set recording start time BEFORE triggering useEffect (setIsRecording)
+      // to prevent race condition with VAD fallback check
+      recordingStartTimeRef.current = Date.now()
+      
       setIsRecording(true)
       
       // Call the callback when recording starts
@@ -351,6 +382,7 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
     // Reset all states
     setIsRecording(false)
     isSendingAudioRef.current = false
+    isFallbackStopRef.current = false
   }, [isRecording])
 
   // Cleanup when ending

@@ -515,6 +515,11 @@ export function ConversationInterface({
     onStartRecording: () => {
       // Reset waiting state when user starts recording
       setIsWaitingForResponse(false)
+    },
+    onFallbackStop: () => {
+      // End the call when fallback is triggered
+      console.log('🎤 Fallback triggered - ending call')
+      endCall()
     }
   })
 
