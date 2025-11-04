@@ -247,10 +247,20 @@ async def handle_start_voice_conversation(
             await send_error(conversation_id, "Persona ID required")
             return
         
-        # Start voice conversation
+        # Get 5-layer configuration (with defaults)
+        industry_id = message_data.get("industry_id", "real_estate")
+        situation_id = message_data.get("situation_id", "discovery_no_urgency_price")
+        psychology_id = message_data.get("psychology_id", "conservative_analytical")
+        
+        logger.info(f"Starting voice conversation with 5-layer config: {industry_id}/{situation_id}/{psychology_id}/{persona_id}")
+        
+        # Start voice conversation with 5-layer configuration
         result = await voice_service.start_voice_conversation(
             conversation=conversation,
-            persona_id=persona_id
+            persona_id=persona_id,
+            industry_id=industry_id,
+            situation_id=situation_id,
+            psychology_id=psychology_id
         )
         
         if result["success"]:

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Clock, User, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
-import { humanizePersona, humanizeContext } from '@/utils/humanize';
+import { humanizePersona, humanizeContext, humanize } from '@/utils/humanize';
 
 interface Conversation {
   id: string;
@@ -13,6 +13,12 @@ interface Conversation {
   created_at: string;
   completed_at: string | null;
   duration_seconds: number | null;
+  metadata?: {
+    industry_id?: string;
+    situation_id?: string;
+    psychology_id?: string;
+    [key: string]: any;
+  };
   transcription_id: string | null;
   analysis_id: string | null;
 }
@@ -95,6 +101,30 @@ export default function HistoryPage() {
 
   const getContextName = (contextId: string) => {
     return humanizeContext(contextId);
+  };
+
+  const getConversationTitle = (conversation: Conversation) => {
+    // If metadata has 5-layer configuration, generate descriptive title
+    if (conversation.metadata?.industry_id && conversation.metadata?.situation_id) {
+      const industry = humanize(conversation.metadata.industry_id);
+      const situation = humanize(conversation.metadata.situation_id);
+      
+      // Format: "Industry - Situation Phase"
+      // Example: "Real Estate - Discovery"
+      const situationParts = situation.split(' ');
+      const phase = situationParts[0] || 'Conversation'; // First word (Discovery, Closing, Objection, Presentation)
+      
+      return `${industry} - ${phase}`;
+    }
+    
+    // Fallback for old conversations: try to use persona_id as hint
+    if (conversation.context_id === 'default') {
+      const personaName = humanizePersona(conversation.persona_id);
+      return `Conversación con ${personaName}`;
+    }
+    
+    // Final fallback to context_id
+    return humanizeContext(conversation.context_id);
   };
 
   if (loading) {
@@ -180,7 +210,7 @@ export default function HistoryPage() {
                     <div className="flex items-center gap-3 mb-3">
                       {getStatusIcon(conversation.status)}
                       <h3 className="text-xl font-semibold text-gray-900">
-                        {getContextName(conversation.context_id)}
+                        {getConversationTitle(conversation)}
                       </h3>
                       <span className="text-sm text-gray-500 bg-gray-100 px-3 py-1 rounded-full">
                         {getStatusText(conversation.status)}

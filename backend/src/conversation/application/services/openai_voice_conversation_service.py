@@ -5,6 +5,8 @@ import logging
 import base64
 import asyncio
 import numpy as np
+import yaml
+from pathlib import Path
 from typing import Optional, Dict, Any, Callable, List, Tuple
 from datetime import datetime
 
@@ -272,12 +274,15 @@ class OpenAIVoiceConversationService:
     async def start_voice_conversation(
         self,
         conversation: Conversation,
-        persona_id: str
+        persona_id: str,
+        industry_id: str = "real_estate",
+        situation_id: str = "discovery_no_urgency_price",
+        psychology_id: str = "conservative_analytical"
     ) -> Dict[str, Any]:
-        """Start a voice-to-voice conversation."""
+        """Start a voice-to-voice conversation with 5-layer configuration."""
         # Ensure conversation_id is always a string
         conversation_id = str(conversation.id.value)
-        logger.info(f"[{conversation_id}] - Starting voice conversation with persona {persona_id}")
+        logger.info(f"[{conversation_id}] - Starting voice conversation with 5-layer config: {industry_id}/{situation_id}/{psychology_id}/{persona_id}")
         
         # Reset audio state for new conversation/response
         self.audio_chunks[conversation_id] = []
@@ -285,27 +290,47 @@ class OpenAIVoiceConversationService:
         self.streaming_used[conversation_id] = False
         
         try:
-            # Get persona
-            persona_id_vo = PersonaId(persona_id)
-            persona = await self.persona_repository.get_by_id(persona_id_vo)
-            if not persona:
-                error_message = f"Persona not found with ID: {persona_id}"
+            # Load configuration from 5-layer YAML files
+            identity_config = self._load_identity_config(persona_id)
+            if not identity_config:
+                error_message = f"Identity configuration not found with ID: {persona_id}"
                 logger.error(f"[{conversation_id}] - {error_message}")
                 return {"success": False, "error": error_message}
             
-            # Prepare persona configuration
+            psychology_config = self._load_psychology_config(psychology_id)
+            
+            # Extract information from configurations
+            name = identity_config.get("name", "Cliente")
+            
+            # Get accent from voice_config
+            voice_config = identity_config.get("voice_config", {})
+            accent = voice_config.get("accent", "neutral")
+            
+            # Build background from identity information
+            identity_info = identity_config.get("identity", {})
+            background = f"{identity_info.get('role', 'Profesional')} con {identity_info.get('experience_years', 0)} años de experiencia"
+            
+            # Get personality traits from psychology config
+            if psychology_config:
+                personality = psychology_config.get("client_profile", {}).get("personality", {})
+                personality_traits = personality.get("traits", [])
+            else:
+                personality_traits = []
+            
+            # Prepare persona configuration with 5-layer system
             persona_config = {
-                "name": persona.name,
-                "personality": persona.personality_traits.traits,
-                "accent": persona.accent.value,
-                "background": persona.background,
-                "prompt_template": persona.prompt_template,
+                "name": name,
+                "personality": personality_traits,
+                "accent": accent,
+                "background": background,
+                "prompt_template": "",  # Not used in 5-layer system
                 "instructions": self.voice_service.get_instructions_for_persona({
-                    "name": persona.name,
-                    "personality": persona.personality_traits.traits,
-                    "accent": persona.accent.value,
-                    "background": persona.background,
-                    "prompt_template": persona.prompt_template
+                    "industry_id": industry_id,
+                    "situation_id": situation_id,
+                    "psychology_id": psychology_id,
+                    "identity_id": persona_id,
+                    "name": name,
+                    "accent": accent
                 })
             }
             
@@ -421,9 +446,9 @@ class OpenAIVoiceConversationService:
                 logger.info(f"[{conversation_id}] - Voice conversation started successfully")
                 return {
                     "success": True,
-                    "persona_name": persona.name,
-                    "persona_accent": persona.accent.value,
-                    "voice": self.voice_service.get_voice_for_persona(persona.accent.value)
+                    "persona_name": name,
+                    "persona_accent": accent,
+                    "voice": self.voice_service.get_voice_for_persona(accent)
                 }
             else:
                 error_message = "Failed to start voice conversation"
@@ -746,3 +771,33 @@ class OpenAIVoiceConversationService:
                 
         except Exception as e:
             logger.error(f"Failed to save transcription file for {conversation_id}: {e}")
+    
+    def _load_identity_config(self, identity_id: str) -> Optional[Dict[str, Any]]:
+        """Load client identity configuration from YAML file."""
+        try:
+            config_path = Path("/app/src/shared/infrastructure/config/client_identity") / f"{identity_id}.yaml"
+            if not config_path.exists():
+                logger.error(f"Identity config file not found: {config_path}")
+                return None
+            
+            with open(config_path, 'r', encoding='utf-8') as f:
+                config = yaml.safe_load(f)
+                return config
+        except Exception as e:
+            logger.error(f"Error loading identity config for {identity_id}: {e}", exc_info=True)
+            return None
+    
+    def _load_psychology_config(self, psychology_id: str) -> Optional[Dict[str, Any]]:
+        """Load client psychology configuration from YAML file."""
+        try:
+            config_path = Path("/app/src/shared/infrastructure/config/client_psychology") / f"{psychology_id}.yaml"
+            if not config_path.exists():
+                logger.warning(f"Psychology config file not found: {config_path}")
+                return None
+            
+            with open(config_path, 'r', encoding='utf-8') as f:
+                config = yaml.safe_load(f)
+                return config
+        except Exception as e:
+            logger.error(f"Error loading psychology config for {psychology_id}: {e}", exc_info=True)
+            return None

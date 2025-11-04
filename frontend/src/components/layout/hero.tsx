@@ -38,7 +38,7 @@ export function Hero() {
               size="lg" 
               className="group relative text-lg px-8 py-4 bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white border-0 rounded-xl shadow-2xl hover:shadow-purple-500/25 transition-all duration-300 transform hover:scale-105"
             >
-              <Link href="#personas" className="flex items-center">
+              <Link href="#config-selector" className="flex items-center">
                 <Play className="mr-3 h-6 w-6 group-hover:rotate-12 transition-transform" />
                 Comenzar Conversación
                 <ArrowRight className="ml-3 h-5 w-5 group-hover:translate-x-1 transition-transform" />

@@ -88,6 +88,25 @@ async def get_available_combinations(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/options")
+async def get_available_options(
+    prompt_service: PromptService = Depends(get_prompt_service)
+):
+    """
+    Obtiene todas las opciones disponibles de las 4 capas configurables:
+    - Industries (Capa 2)
+    - Situations (Capa 3)
+    - Psychologies (Capa 4)
+    - Identities (Capa 5)
+    """
+    try:
+        options = prompt_service.get_all_available_options()
+        return options
+    except Exception as e:
+        logger.error(f"Error getting available options: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/contexts")
 async def get_available_contexts(
     prompt_service: PromptService = Depends(get_prompt_service)

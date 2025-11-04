@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { ArrowLeft, Clock, User, MessageCircle, TrendingUp, AlertCircle, CheckCircle2, XCircle } from 'lucide-react';
-import { humanizePersona, humanizeContext } from '@/utils/humanize';
+import { humanizePersona, humanizeContext, humanize } from '@/utils/humanize';
 
 interface Message {
   id: string;
@@ -47,6 +47,12 @@ interface ConversationDetail {
     created_at: string;
     completed_at: string | null;
     duration_seconds: number | null;
+    metadata?: {
+      industry_id?: string;
+      situation_id?: string;
+      psychology_id?: string;
+      [key: string]: any;
+    };
   };
   transcription: {
     messages: Message[];
@@ -112,6 +118,29 @@ export default function ConversationDetailPage() {
 
   const getContextName = (contextId: string) => {
     return humanizeContext(contextId);
+  };
+
+  const getConversationTitle = (conversation: any) => {
+    // If metadata has 5-layer configuration, generate descriptive title
+    if (conversation.metadata?.industry_id && conversation.metadata?.situation_id) {
+      const industry = humanize(conversation.metadata.industry_id);
+      const situation = humanize(conversation.metadata.situation_id);
+      
+      // Format: "Industry - Situation Phase"
+      const situationParts = situation.split(' ');
+      const phase = situationParts[0] || 'Conversation';
+      
+      return `${industry} - ${phase}`;
+    }
+    
+    // Fallback for old conversations
+    if (conversation.context_id === 'default') {
+      const personaName = humanizePersona(conversation.persona_id);
+      return `Conversación con ${personaName}`;
+    }
+    
+    // Final fallback to context_id
+    return humanizeContext(conversation.context_id);
   };
 
   const getScoreColor = (score: number) => {
@@ -194,7 +223,7 @@ export default function ConversationDetailPage() {
           </button>
           
           <h1 className="text-3xl font-bold mb-2">
-            {getContextName(conversation.context_id)}
+            {getConversationTitle(conversation)}
           </h1>
           
           <div className="flex items-center gap-6 text-white/90 text-sm">
