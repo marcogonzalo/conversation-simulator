@@ -4,7 +4,6 @@
 # Ignorar archivos YAML de configuración (excepto ejemplos)
 *.yaml
 !*_example.yaml
-!simulation_rules.yaml
 
 # Permitir subdirectorios
 !industry_contexts/
