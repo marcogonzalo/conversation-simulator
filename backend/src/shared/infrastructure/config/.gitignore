@@ -1,0 +1,18 @@
+# Ignorar archivos de configuración específicos
+# Solo los archivos de ejemplo y documentación se suben al repositorio
+
+# Ignorar archivos YAML de configuración (excepto ejemplos)
+*.yaml
+!*_example.yaml
+!simulation_rules.yaml
+
+# Permitir subdirectorios
+!industry_contexts/
+!sales_situations/
+!client_psychology/
+!client_identity/
+
+# Permitir archivos de documentación
+!*.md
+!README.md
+

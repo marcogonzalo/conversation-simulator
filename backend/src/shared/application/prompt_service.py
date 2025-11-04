@@ -1,6 +1,6 @@
 """
 Prompt Service - Aplicación
-Servicio de aplicación para gestión de prompts dinámicos
+Servicio de aplicación para gestión de prompts dinámicos (5 capas)
 """
 
 from typing import Dict, Any, List, Optional
@@ -11,110 +11,155 @@ logger = logging.getLogger(__name__)
 
 
 class PromptService:
-    """Servicio de aplicación para gestión de prompts"""
-    
-    def __init__(self, config_path: str = "/app/config"):
+    """Servicio de aplicación para gestión de prompts (5 capas)"""
+
+    def __init__(self, config_path: str = "/app/src/shared/infrastructure/config"):
         self.prompt_builder = PromptBuilder(config_path)
-    
-    def generate_prompt(self, conversation_context_id: str, persona_id: str) -> str:
+
+    def generate_prompt(
+        self,
+        industry_id: str,
+        situation_id: str,
+        psychology_id: str,
+        identity_id: str
+    ) -> str:
         """
-        Genera un prompt dinámico combinando las tres capas
-        
+        Genera un prompt dinámico combinando las 5 capas
+
         Args:
-            conversation_context_id: ID del contexto de conversación
-            persona_id: ID de la persona
-            
+            industry_id: ID del contexto de industria (ej: "real_estate")
+            situation_id: ID de la situación de venta (ej: "discovery_no_urgency_price")
+            psychology_id: ID de la psicología del cliente (ej: "conservative_analytical")
+            identity_id: ID de la identidad del cliente (ej: "ana_garcia")
+
         Returns:
             Prompt final generado
         """
         try:
-            prompt = self.prompt_builder.build_prompt(conversation_context_id, persona_id)
-            logger.info(f"Prompt generated for context: {conversation_context_id}, persona: {persona_id}")
+            prompt = self.prompt_builder.build_prompt(
+                industry_id,
+                situation_id,
+                psychology_id,
+                identity_id
+            )
+            logger.info(
+                f"Prompt generated: {industry_id} + {situation_id} + "
+                f"{psychology_id} + {identity_id}"
+            )
             return prompt
         except Exception as e:
             logger.error(f"Error generating prompt: {e}")
             raise
-    
-    def get_available_combinations(self) -> List[Dict[str, str]]:
+
+    def get_available_industries(self) -> List[Dict[str, str]]:
+        """Obtiene lista de industrias disponibles"""
+        industries = self.prompt_builder.get_available_industries()
+        return [
+            {
+                "id": ind,
+                "name": ind.replace("_", " ").title()
+            }
+            for ind in industries
+        ]
+
+    def get_available_situations(self) -> List[Dict[str, str]]:
+        """Obtiene lista de situaciones de venta disponibles"""
+        situations = self.prompt_builder.get_available_situations()
+        return [
+            {
+                "id": sit,
+                "name": sit.replace("_", " ").title()
+            }
+            for sit in situations
+        ]
+
+    def get_available_psychologies(self) -> List[Dict[str, str]]:
+        """Obtiene lista de psicologías de cliente disponibles"""
+        psychologies = self.prompt_builder.get_available_psychologies()
+        return [
+            {
+                "id": psy,
+                "name": psy.replace("_", " ").title()
+            }
+            for psy in psychologies
+        ]
+
+    def get_available_identities(self) -> List[Dict[str, str]]:
+        """Obtiene lista de identidades de cliente disponibles"""
+        identities = self.prompt_builder.get_available_identities()
+        return [
+            {
+                "id": ident,
+                "name": ident.replace("_", " ").title()
+            }
+            for ident in identities
+        ]
+
+    def get_all_available_options(self) -> Dict[str, List[Dict[str, str]]]:
         """
-        Obtiene todas las combinaciones disponibles de contexto y persona
-        
+        Obtiene todas las opciones disponibles de cada capa
+
         Returns:
-            Lista de combinaciones disponibles
+            Diccionario con todas las opciones por capa
         """
-        contexts = self.prompt_builder.get_available_contexts()
-        personas = self.prompt_builder.get_available_personas()
-        
-        combinations = []
-        for context in contexts:
-            for persona in personas:
-                combinations.append({
-                    "conversation_context_id": context,
-                    "persona_id": persona,
-                    "name": f"{context} - {persona}"
-                })
-        
-        return combinations
-    
-    def get_available_contexts(self) -> List[Dict[str, str]]:
+        return {
+            "industries": self.get_available_industries(),
+            "situations": self.get_available_situations(),
+            "psychologies": self.get_available_psychologies(),
+            "identities": self.get_available_identities()
+        }
+
+    def validate_combination(
+        self,
+        industry_id: str,
+        situation_id: str,
+        psychology_id: str,
+        identity_id: str
+    ) -> bool:
         """
-        Obtiene lista de contextos de conversación disponibles
-        
-        Returns:
-            Lista de contextos con metadatos
-        """
-        contexts = self.prompt_builder.get_available_contexts()
-        return [{"id": ctx, "name": ctx.replace("_", " ").title()} for ctx in contexts]
-    
-    def get_available_personas(self) -> List[Dict[str, str]]:
-        """
-        Obtiene lista de personas disponibles
-        
-        Returns:
-            Lista de personas con metadatos
-        """
-        personas = self.prompt_builder.get_available_personas()
-        return [{"id": persona, "name": persona.replace("_", " ").title()} for persona in personas]
-    
-    def validate_combination(self, conversation_context_id: str, persona_id: str) -> bool:
-        """
-        Valida si una combinación de contexto y persona es válida
-        
-        Args:
-            conversation_context_id: ID del contexto de conversación
-            persona_id: ID de la persona
-            
+        Valida si una combinación de 4 capas es válida
+
         Returns:
             True si la combinación es válida, False en caso contrario
         """
         try:
-            available_contexts = self.prompt_builder.get_available_contexts()
-            available_personas = self.prompt_builder.get_available_personas()
-            
-            return (conversation_context_id in available_contexts and 
-                    persona_id in available_personas)
+            available_industries = self.prompt_builder.get_available_industries()
+            available_situations = self.prompt_builder.get_available_situations()
+            available_psychologies = self.prompt_builder.get_available_psychologies()
+            available_identities = self.prompt_builder.get_available_identities()
+
+            return (
+                industry_id in available_industries and
+                situation_id in available_situations and
+                psychology_id in available_psychologies and
+                identity_id in available_identities
+            )
         except Exception as e:
             logger.error(f"Error validating combination: {e}")
             return False
-    
-    def get_prompt_metadata(self, conversation_context_id: str, persona_id: str) -> Dict[str, Any]:
+
+    def get_prompt_metadata(
+        self,
+        industry_id: str,
+        situation_id: str,
+        psychology_id: str,
+        identity_id: str
+    ) -> Dict[str, Any]:
         """
         Obtiene metadatos del prompt generado
-        
-        Args:
-            conversation_context_id: ID del contexto de conversación
-            persona_id: ID de la persona
-            
+
         Returns:
             Metadatos del prompt
         """
         try:
-            # Generar prompt para obtener metadatos
-            prompt = self.generate_prompt(conversation_context_id, persona_id)
-            
+            prompt = self.generate_prompt(
+                industry_id, situation_id, psychology_id, identity_id)
+
             return {
-                "conversation_context_id": conversation_context_id,
-                "persona_id": persona_id,
+                "industry_id": industry_id,
+                "situation_id": situation_id,
+                "psychology_id": psychology_id,
+                "identity_id": identity_id,
                 "prompt_length": len(prompt),
                 "prompt_word_count": len(prompt.split()),
                 "available": True
@@ -122,12 +167,24 @@ class PromptService:
         except Exception as e:
             logger.error(f"Error getting prompt metadata: {e}")
             return {
-                "conversation_context_id": conversation_context_id,
-                "persona_id": persona_id,
+                "industry_id": industry_id,
+                "situation_id": situation_id,
+                "psychology_id": psychology_id,
+                "identity_id": identity_id,
                 "available": False,
                 "error": str(e)
             }
-    
+
+    def get_total_combinations(self) -> int:
+        """Calcula el número total de combinaciones posibles"""
+        industries_count = len(self.prompt_builder.get_available_industries())
+        situations_count = len(self.prompt_builder.get_available_situations())
+        psychologies_count = len(
+            self.prompt_builder.get_available_psychologies())
+        identities_count = len(self.prompt_builder.get_available_identities())
+
+        return industries_count * situations_count * psychologies_count * identities_count
+
     def clear_cache(self):
         """Limpia el cache de prompts"""
         self.prompt_builder.clear_cache()
