@@ -53,9 +53,15 @@ class SimulationRulesSchema(BaseModel):
     llm_identity: LLMIdentity
     safety_rules: List[str]
     realism_standards: Dict[str, Any]
-    behavior_guidelines: Dict[str, Any]
     content_restrictions: Dict[str, Any]
+    response_format: Optional[Dict[str, Any]] = None
+    objection_timing: Optional[List[str]] = None
+    implicit_behaviors: Optional[List[str]] = None
+    silence_handling: Optional[List[str]] = None
+    escalation_rules: Optional[List[str]] = None
     quality_metadata: Dict[str, Any]
+    # Deprecated fields (for backward compatibility)
+    behavior_guidelines: Optional[Dict[str, Any]] = None
 
 
 # ============================================================================

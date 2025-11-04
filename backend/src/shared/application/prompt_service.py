@@ -13,8 +13,12 @@ logger = logging.getLogger(__name__)
 class PromptService:
     """Servicio de aplicación para gestión de prompts (5 capas)"""
 
-    def __init__(self, config_path: str = "/app/src/shared/infrastructure/config"):
-        self.prompt_builder = PromptBuilder(config_path)
+    def __init__(
+        self, 
+        config_path: str = "/app/src/shared/infrastructure/config",
+        strict_validation: bool = False
+    ):
+        self.prompt_builder = PromptBuilder(config_path, strict_validation=strict_validation)
 
     def generate_prompt(
         self,

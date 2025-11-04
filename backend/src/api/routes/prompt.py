@@ -15,7 +15,9 @@ router = APIRouter(prefix="/prompts", tags=["prompts"])
 
 # Dependencia para obtener el servicio de prompts
 def get_prompt_service() -> PromptService:
-    return PromptService()
+    from src.shared.infrastructure.external_apis.api_config import APIConfig
+    config = APIConfig()
+    return PromptService(strict_validation=config.prompt_strict_validation)
 
 
 class PromptRequest(BaseModel):
@@ -104,6 +106,62 @@ async def get_available_options(
         return options
     except Exception as e:
         logger.error(f"Error getting available options: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/validate")
+async def validate_combination(
+    industry_id: str,
+    situation_id: str,
+    psychology_id: str,
+    identity_id: str,
+    prompt_service: PromptService = Depends(get_prompt_service)
+):
+    """
+    Valida si una combinación de 4 capas es semánticamente coherente.
+    Devuelve warnings si hay inconsistencias detectadas.
+    """
+    try:
+        # Validar que los IDs existen
+        if not prompt_service.validate_combination(
+            industry_id, situation_id, psychology_id, identity_id
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid IDs: one or more configuration files not found"
+            )
+        
+        # Realizar validación semántica
+        from ...shared.domain.semantic_validator import SemanticValidator
+        
+        # Load configurations
+        industry = prompt_service.prompt_builder._load_industry_context(industry_id)
+        situation = prompt_service.prompt_builder._load_sales_situation(situation_id)
+        psychology = prompt_service.prompt_builder._load_client_psychology(psychology_id)
+        identity = prompt_service.prompt_builder._load_client_identity(identity_id)
+        
+        # Validate
+        is_valid, warnings = SemanticValidator.validate_consistency(
+            industry, situation, psychology, identity
+        )
+        
+        return {
+            "valid": True,  # IDs exist
+            "semantically_coherent": is_valid,
+            "warnings": warnings,
+            "warning_count": len(warnings),
+            "combination": {
+                "industry_id": industry_id,
+                "situation_id": situation_id,
+                "psychology_id": psychology_id,
+                "identity_id": identity_id
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error validating combination: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

@@ -13,6 +13,7 @@ import hashlib
 import time
 import re
 from .schemas import SchemaValidator
+from .semantic_validator import SemanticValidator
 
 logger = logging.getLogger(__name__)
 
@@ -30,8 +31,13 @@ class PromptConfig:
 class PromptBuilder:
     """Servicio para construir prompts dinámicos combinando las 5 capas"""
 
-    def __init__(self, config_path: str = "/app/src/shared/infrastructure/config"):
+    def __init__(
+        self, 
+        config_path: str = "/app/src/shared/infrastructure/config",
+        strict_validation: bool = False
+    ):
         self.config_path = Path(config_path)
+        self.strict_validation = strict_validation
         self._simulation_rules: Optional[Dict[str, Any]] = None
         self._cache: Dict[str, str] = {}
 
@@ -520,6 +526,45 @@ class PromptBuilder:
             sales_situation = self._load_sales_situation(situation_id)
             client_psychology = self._load_client_psychology(psychology_id)
             client_identity = self._load_client_identity(identity_id)
+
+            # Validación semántica cruzada
+            is_semantically_valid, semantic_warnings = SemanticValidator.validate_consistency(
+                industry_context,
+                sales_situation,
+                client_psychology,
+                client_identity
+            )
+            
+            if semantic_warnings:
+                # Clasificar warnings por severidad
+                critical_warnings = [w for w in semantic_warnings if 'Contradicción' in w or 'Inconsistencia' in w]
+                non_critical_warnings = [w for w in semantic_warnings if w not in critical_warnings]
+                
+                # Log warnings
+                logger.warning(f"Semantic validation for {cache_key}: {len(semantic_warnings)} warnings found")
+                
+                if critical_warnings:
+                    logger.warning(f"  🔴 {len(critical_warnings)} CRITICAL warnings:")
+                    for warning in critical_warnings:
+                        logger.warning(f"    {warning}")
+                
+                if non_critical_warnings:
+                    logger.warning(f"  ⚠️  {len(non_critical_warnings)} non-critical warnings:")
+                    for warning in non_critical_warnings:
+                        logger.warning(f"    {warning}")
+                
+                # Modo estricto: Bloquear si hay warnings críticos
+                if self.strict_validation and critical_warnings:
+                    error_msg = (
+                        f"Semantic validation failed in STRICT mode for {cache_key}. "
+                        f"Found {len(critical_warnings)} critical inconsistencies. "
+                        f"Fix configuration or disable strict_validation."
+                    )
+                    logger.error(error_msg)
+                    logger.error(f"Critical issues: {critical_warnings}")
+                    raise ValueError(f"{error_msg}\nIssues: {critical_warnings}")
+            else:
+                logger.info(f"✅ Semantic validation passed for {cache_key} (no warnings)")
 
             # Construir cada parte del prompt
             rules_prompt = self._build_simulation_rules_prompt(
