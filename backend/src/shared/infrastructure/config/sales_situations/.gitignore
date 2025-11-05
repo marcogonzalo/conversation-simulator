@@ -1,0 +1,9 @@
+# Ignorar todas las situaciones de venta específicas
+*.yaml
+
+# Permitir archivos de ejemplo
+!*_example.yaml
+
+# Permitir documentación
+!README.md
+

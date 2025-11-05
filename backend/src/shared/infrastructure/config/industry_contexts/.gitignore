@@ -1,0 +1,9 @@
+# Ignorar todas las configuraciones de industria específicas
+*.yaml
+
+# Permitir archivos de ejemplo
+!*_example.yaml
+
+# Permitir documentación
+!README.md
+

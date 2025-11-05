@@ -13,6 +13,7 @@ export const apiConfig = {
   conversations: `${API_BASE_URL}/api/v1/conversations/`,
   personas: `${API_BASE_URL}/api/v1/personas/`,
   analysis: `${API_BASE_URL}/api/v1/analysis/`,
+  prompts: `${API_BASE_URL}/api/v1/prompts/`,
   
   // WebSocket endpoints
   wsBaseUrl: WS_BASE_URL,

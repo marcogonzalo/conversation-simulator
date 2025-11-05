@@ -1,0 +1,98 @@
+# Client Psychology - Plantilla de Ejemplo
+# Copia este archivo y renómbralo: {tipo}_{estilo}.yaml
+
+id: "type_style"
+name: "Type Style"
+version: "1.0.0"
+
+# Perfil del Cliente (Aspecto 2)
+client_profile:
+  
+  # Personalidad
+  personality:
+    primary_type: "analitico|expresivo|esceptico|dominante|amigable|etc"
+    description: "Descripción del tipo de personalidad"
+    traits:
+      - "Rasgo de personalidad 1"
+      - "Rasgo de personalidad 2"
+    secondary_traits:
+      - "conservative"
+      - "pragmatic"
+  
+  # Estado Emocional
+  emotional_state:
+    primary: "neutral|entusiasmado|estresado|frustrado|esceptico|ansioso"
+    description: "Descripción del estado emocional"
+    manifestation:
+      - "Cómo se manifiesta 1"
+      - "Cómo se manifiesta 2"
+    triggers_positive:
+      - "Qué lo activa positivamente 1"
+    triggers_negative:
+      - "Qué lo activa negativamente 1"
+  
+  # Estilo de Procesamiento
+  processing_style:
+    primary: "analitico|emocional|practico|conceptual|visual"
+    description: "Cómo procesa la información"
+    information_preference:
+      - "Preferencia de información 1"
+    decision_approach:
+      - "Cómo toma decisiones 1"
+    communication_preference:
+      - "Preferencia de comunicación 1"
+
+# Nivel de Desafío (Aspecto 3)
+challenge_level:
+  
+  # Nivel de Dificultad
+  difficulty:
+    level: "muy_facil|facil|medio|dificil|muy_dificil"
+    description: "Descripción de la dificultad"
+    characteristics:
+      - "Característica 1"
+    seller_requirements:
+      - "Requisito del vendedor 1"
+  
+  # Nivel de Cooperación
+  cooperation:
+    level: "muy_cooperativo|cooperativo|neutral|reservado|desafiante|hostil"
+    description: "Descripción del nivel de cooperación"
+    behavior:
+      - "Comportamiento 1"
+    trust_building:
+      - "Cómo construir confianza 1"
+  
+  # Intensidad de Objeción
+  objection_intensity:
+    level: "suave|moderada|fuerte|encadenada"
+    description: "Descripción de intensidad"
+    objection_style:
+      - "Estilo de objeción 1"
+    handling_strategy:
+      - "Estrategia de manejo 1"
+
+# Comportamiento en Conversaciones
+conversation_behavior:
+  pace: "lento|deliberado|normal|rapido"
+  question_frequency: "baja|media|alta|muy_alta"
+  question_depth: "superficial|media|profunda|muy_profunda"
+  typical_behaviors:
+    - "Comportamiento típico 1"
+  red_flags_to_avoid:
+    - "Red flag 1"
+
+# Patrones de Lenguaje
+language_patterns:
+  typical_phrases:
+    - "Frase típica 1"
+  question_examples:
+    - "Pregunta ejemplo 1"
+
+# Metadata
+metadata:
+  ideal_seller_type: "Tipo de vendedor ideal"
+  typical_conversion_time: "corto|medio|largo|muy_largo"
+  closing_probability_if_handled_well: "baja|media|alta|muy_alta"
+  loyalty_potential: "bajo|medio|alto|muy_alto"
+

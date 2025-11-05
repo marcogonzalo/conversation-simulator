@@ -1,6 +1,13 @@
 import { useState, useRef, useCallback } from 'react'
 import { apiConfig } from '@/config/api'
 
+interface ConversationConfig {
+  industry_id?: string
+  situation_id?: string
+  psychology_id?: string
+  identity_id: string
+}
+
 interface UseWebSocketProps {
   onMessage: (data: any) => void
   onConnect: () => void
@@ -16,7 +23,7 @@ export function useWebSocket({ onMessage, onConnect, onDisconnect, onAnalysis }:
   
   const websocketRef = useRef<WebSocket | null>(null)
 
-  const connect = useCallback(async (personaId: string, contextId: string = "default") => {
+  const connect = useCallback(async (config: ConversationConfig, contextId: string = "default") => {
     try {
       setIsLoading(true)
       setIsEnding(false) // Reset ending state for new conversation
@@ -27,9 +34,14 @@ export function useWebSocket({ onMessage, onConnect, onDisconnect, onAnalysis }:
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          persona_id: personaId,
+          persona_id: config.identity_id,
           context_id: contextId,
-          metadata: { created_at: new Date().toISOString() }
+          metadata: { 
+            created_at: new Date().toISOString(),
+            industry_id: config.industry_id,
+            situation_id: config.situation_id,
+            psychology_id: config.psychology_id
+          }
         }),
       })
       
@@ -51,10 +63,13 @@ export function useWebSocket({ onMessage, onConnect, onDisconnect, onAnalysis }:
         setIsLoading(false)
         onConnect()
         
-        // Start voice conversation
+        // Start voice conversation with 5-layer configuration
         ws.send(JSON.stringify({
           type: 'start_voice_conversation',
-          persona_id: personaId
+          persona_id: config.identity_id,
+          industry_id: config.industry_id || 'real_estate',
+          situation_id: config.situation_id || 'discovery_no_urgency_price',
+          psychology_id: config.psychology_id || 'conservative_analytical'
         }))
       }
       

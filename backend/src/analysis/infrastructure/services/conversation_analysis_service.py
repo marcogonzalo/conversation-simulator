@@ -137,7 +137,7 @@ class ConversationAnalysisService:
     def _load_analysis_prompts(self) -> Dict[str, Any]:
         """Load analysis prompts from configuration."""
         try:
-            prompts_path = Path("/app/config/analysis_prompts.yaml")
+            prompts_path = Path("/app/src/analysis/infrastructure/config/analysis_prompts.yaml")
             with open(prompts_path, 'r', encoding='utf-8') as f:
                 return yaml.safe_load(f)
         except Exception as e:

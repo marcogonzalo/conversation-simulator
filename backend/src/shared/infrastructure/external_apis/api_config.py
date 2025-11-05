@@ -60,6 +60,9 @@ class APIConfig:
         # Analysis settings
         self.analysis_timeout = int(os.getenv("ANALYSIS_TIMEOUT", "300"))  # 5 minutes
         self.analysis_retry_attempts = int(os.getenv("ANALYSIS_RETRY_ATTEMPTS", "3"))
+        
+        # Prompt validation settings
+        self.prompt_strict_validation = os.getenv("PROMPT_STRICT_VALIDATION", "false").lower() == "true"
     
     def validate_config(self) -> bool:
         """Validate API configuration."""

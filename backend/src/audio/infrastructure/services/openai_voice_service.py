@@ -43,7 +43,7 @@ class OpenAIVoiceService:
         self._user_audio_timestamp: Optional[datetime] = None
         
         # Prompt service for dynamic prompts
-        self.prompt_service = PromptService()
+        self.prompt_service = PromptService(strict_validation=api_config.prompt_strict_validation)
         self._audio_timer: Optional[asyncio.Task] = None
         self._is_processing_audio = False
         # Server VAD handles turn detection, this timeout controls chunk aggregation size

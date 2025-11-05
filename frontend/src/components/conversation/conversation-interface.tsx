@@ -18,41 +18,27 @@ import { Persona } from '@/types/persona'
 import { humanizeAccent } from '@/utils/accentUtils'
 import { MessageRole, MessageRoleUtils } from '@/types/messageRole'
 
+interface ConversationConfig {
+  industry_id: string
+  situation_id: string
+  psychology_id: string
+  identity_id: string
+}
+
 interface ConversationInterfaceProps {
-  conversationId?: string | Promise<string>
-  personaId?: string
-  personaName?: string
-  personaAccent?: string
-  persona?: Persona
+  conversationId: string
+  config: ConversationConfig
 }
 
 export function ConversationInterface({ 
-  conversationId = 'test-conversation', 
-  personaId, 
-  personaName, 
-  personaAccent,
-  persona 
+  conversationId,
+  config
 }: ConversationInterfaceProps) {
   
-  // State for resolved conversation ID
-  const [resolvedConversationId, setResolvedConversationId] = useState<string>('')
-  
-  // State for context selection - Default to 'compra_vivienda'
-  const selectedContextId = 'compra_vivienda'
-  
-  // Use persona prop if provided, otherwise use individual props
-  const actualPersonaName = persona?.name || personaName || 'Test Persona'
-  const actualPersonaId = persona?.id || personaId || 'test-persona'
-  const actualPersonaAccent = persona?.accent || personaAccent || 'neutral'
-  
-  // Resolve conversation ID if it's a Promise
-  useEffect(() => {
-    if (typeof conversationId === 'string') {
-      setResolvedConversationId(conversationId)
-    } else if (conversationId instanceof Promise) {
-      conversationId.then(id => setResolvedConversationId(id))
-    }
-  }, [conversationId])
+  // Extract identity_id as personaId for backward compatibility
+  const actualPersonaId = config.identity_id
+  const actualPersonaName = config.identity_id.replace('_', ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+  const actualPersonaAccent = 'neutral' // Will be set by backend based on identity config
   // UI State
   const [callStatus, setCallStatus] = useState<'idle' | 'connecting' | 'connected' | 'disconnected'>('idle')
   const [callDuration, setCallDuration] = useState(0)
@@ -575,7 +561,7 @@ export function ConversationInterface({
     // Limpiar hash de audio anterior para nueva conversación
     lastAudioSentRef.current = null
     
-    await connect(actualPersonaId, selectedContextId)
+    await connect(config)
   }
 
   const endCall = () => {

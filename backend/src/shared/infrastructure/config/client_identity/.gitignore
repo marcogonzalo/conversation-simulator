@@ -1,0 +1,9 @@
+# Ignorar todas las identidades de cliente específicas
+*.yaml
+
+# Permitir archivos de ejemplo
+!*_example.yaml
+
+# Permitir documentación
+!README.md
+
