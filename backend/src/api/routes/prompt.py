@@ -230,6 +230,48 @@ async def clear_prompt_cache(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.get("/telemetry")
+async def get_prompt_telemetry(
+    industry_id: str,
+    situation_id: str,
+    psychology_id: str,
+    identity_id: str,
+    prompt_service: PromptService = Depends(get_prompt_service)
+):
+    """
+    Obtiene telemetría de un prompt específico.
+    
+    Devuelve metadata incluyendo:
+    - Prompt hash para reproducibilidad
+    - Timestamp de generación
+    - IDs de las 4 capas
+    - Versiones de archivos YAML
+    - Longitud y conteo de palabras
+    - Warnings de validación semántica
+    """
+    try:
+        metadata = prompt_service.get_prompt_telemetry(
+            industry_id, situation_id, psychology_id, identity_id
+        )
+        
+        if metadata is None:
+            # Prompt not in cache, generate it to get metadata
+            _ = prompt_service.generate_prompt(
+                industry_id, situation_id, psychology_id, identity_id
+            )
+            metadata = prompt_service.get_prompt_telemetry(
+                industry_id, situation_id, psychology_id, identity_id
+            )
+        
+        return metadata if metadata else {
+            "error": "Unable to generate prompt metadata"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting prompt telemetry: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/health")
 async def health_check():
     """

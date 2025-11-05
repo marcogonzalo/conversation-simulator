@@ -193,3 +193,25 @@ class PromptService:
         """Limpia el cache de prompts"""
         self.prompt_builder.clear_cache()
         logger.info("Prompt cache cleared")
+    
+    def get_prompt_telemetry(
+        self,
+        industry_id: str,
+        situation_id: str,
+        psychology_id: str,
+        identity_id: str
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Obtiene telemetría de un prompt específico.
+        
+        Args:
+            industry_id: ID de industria
+            situation_id: ID de situación
+            psychology_id: ID de psicología
+            identity_id: ID de identidad
+        
+        Returns:
+            Metadata del prompt o None si no existe en caché
+        """
+        cache_key = f"{industry_id}_{situation_id}_{psychology_id}_{identity_id}"
+        return self.prompt_builder.get_prompt_metadata(cache_key)

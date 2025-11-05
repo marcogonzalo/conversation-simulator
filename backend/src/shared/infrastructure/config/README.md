@@ -4,7 +4,7 @@ Este directorio contiene las configuraciones YAML para el sistema de 5 capas.
 
 ## 📂 Estructura
 
-```
+```mermaid
 config/
 ├── CONVERSATION_CONFIGURATION.md   # Documentación completa ⭐
 ├── simulation_rules.yaml           # Capa 1: Reglas globales
@@ -16,7 +16,9 @@ config/
 
 ## 📖 Documentación
 
-Lee `CONVERSATION_CONFIGURATION.md` para entender el sistema completo.
+- **Configuración**: Lee `CONVERSATION_CONFIGURATION.md` para entender el sistema completo de 5 capas
+- **Validación Semántica**: Ver [/backend/docs/SEMANTIC_VALIDATION.md](/backend/docs/SEMANTIC_VALIDATION.md)
+- **Telemetría**: Ver [/backend/docs/TELEMETRY.md](/backend/docs/TELEMETRY.md)
 
 ## 🚀 Uso
 
@@ -41,4 +43,3 @@ prompt = service.generate_prompt(
 ---
 
 **Ver documentación completa**: `CONVERSATION_CONFIGURATION.md`
-

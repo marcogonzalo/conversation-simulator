@@ -40,6 +40,7 @@ class PromptBuilder:
         self.strict_validation = strict_validation
         self._simulation_rules: Optional[Dict[str, Any]] = None
         self._cache: Dict[str, str] = {}
+        self._metadata_cache: Dict[str, Dict[str, Any]] = {}  # Store metadata per prompt
 
     # ========================================================================
     # Layer Loading Methods
@@ -603,10 +604,56 @@ class PromptBuilder:
             client_name = client_identity.get('name', 'Unknown')
             final_prompt = self._build_secure_prompt(base_prompt, client_name)
 
+            # Generate telemetry metadata
+            from datetime import datetime, timezone
+            prompt_hash = hashlib.sha256(final_prompt.encode()).hexdigest()[:12]
+            
+            # Get file versions for reproducibility
+            file_versions = {
+                'simulation_rules': self._get_file_version('simulation_rules.yaml'),
+                'industry': self._get_file_version(f'industry_contexts/{industry_id}.yaml'),
+                'situation': self._get_file_version(f'sales_situations/{situation_id}.yaml'),
+                'psychology': self._get_file_version(f'client_psychology/{psychology_id}.yaml'),
+                'identity': self._get_file_version(f'client_identity/{identity_id}.yaml')
+            }
+            
+            # Build comprehensive metadata
+            metadata = {
+                'prompt_hash': prompt_hash,
+                'generated_at': datetime.now(timezone.utc).isoformat(),
+                'layer_ids': {
+                    'industry': industry_id,
+                    'situation': situation_id,
+                    'psychology': psychology_id,
+                    'identity': identity_id
+                },
+                'file_versions': file_versions,
+                'prompt_length': len(final_prompt),
+                'word_count': len(final_prompt.split()),
+                'validation_warnings': len(semantic_warnings),
+                'is_semantically_valid': is_semantically_valid,
+                'strict_validation_enabled': self.strict_validation,
+                'cache_key': cache_key
+            }
+            
+            # Store metadata
+            self._metadata_cache[cache_key] = metadata
+            
             # Guardar en cache
             self._cache[cache_key] = final_prompt
 
-            logger.info(f"Prompt built successfully for {cache_key}")
+            # Log with telemetry
+            logger.info(
+                f"Prompt built successfully | "
+                f"hash={prompt_hash} | "
+                f"length={len(final_prompt)} | "
+                f"warnings={len(semantic_warnings)} | "
+                f"layers={industry_id}/{situation_id}/{psychology_id}/{identity_id}"
+            )
+            
+            # Log detailed metadata at debug level
+            logger.debug(f"Prompt metadata: {metadata}")
+            
             return final_prompt
 
         except Exception as e:
@@ -664,7 +711,41 @@ class PromptBuilder:
     def clear_cache(self):
         """Limpia el cache de prompts"""
         self._cache.clear()
-        logger.info("Prompt cache cleared")
+        self._metadata_cache.clear()
+        logger.info("Prompt cache and metadata cache cleared")
+    
+    def get_prompt_metadata(self, cache_key: str) -> Optional[Dict[str, Any]]:
+        """
+        Obtiene metadata de un prompt específico.
+        
+        Args:
+            cache_key: Clave del cache (industry_situation_psychology_identity)
+        
+        Returns:
+            Metadata del prompt o None si no existe
+        """
+        return self._metadata_cache.get(cache_key)
+    
+    def _get_file_version(self, relative_path: str) -> str:
+        """
+        Obtiene versión de un archivo basada en su mtime.
+        
+        Args:
+            relative_path: Ruta relativa desde config_path
+        
+        Returns:
+            Hash MD5 del mtime del archivo
+        """
+        try:
+            file_path = self.config_path / relative_path
+            if not file_path.exists():
+                return "not_found"
+            
+            mtime = file_path.stat().st_mtime
+            return hashlib.md5(str(mtime).encode()).hexdigest()[:8]
+        except Exception as e:
+            logger.warning(f"Error getting file version for {relative_path}: {e}")
+            return "unknown"
 
     # ========================================================================
     # Security Methods (from original PromptBuilder)
