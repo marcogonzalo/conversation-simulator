@@ -1,0 +1,80 @@
+# Industry Context - Plantilla de Ejemplo
+# Copia este archivo y renómbralo para crear una nueva industria
+
+id: "industry_name"
+name: "Industry Name"
+version: "1.0.0"
+
+# Tema/Industria (Aspecto 9)
+industry:
+  sector: "Sector Principal"
+  subsector: "Subsector Específico"
+  market: "Mercado Objetivo"
+
+# Tipo de Venta (Aspecto 10)
+sale_type:
+  product_type: "Descripción del producto/servicio"
+  complexity: "transaccional|consultiva|enterprise|técnica"
+  cycle_duration: "corto|medio|largo"
+  
+# Situación Presupuestaria (Aspecto 8)
+budget_situation:
+  typical_range: "$X - $Y"
+  ticket_size: "bajo|medio|alto"
+  budget_flexibility: "limitado|definido|flexible"
+  financing_common: true|false
+
+# Estado del Cliente (Aspecto 5) - Defaults
+client_state:
+  typical_temperature: "frío|tibio|caliente"
+  typical_journey_phase: "awareness|consideracion|decision"
+  typical_previous_experience: "ninguna|basica|intermedia|experta"
+
+# Nivel de Urgencia (Aspecto 7) - Default
+urgency:
+  default_level: "baja|media|alta"
+  typical_timeline: "Descripción del timeline típico"
+
+# Terminología y Conceptos Clave
+terminology:
+  key_terms:
+    - "Término clave 1"
+    - "Término clave 2"
+    
+  common_concerns:
+    - "Preocupación común 1"
+    - "Preocupación común 2"
+
+# Factores de Decisión Típicos
+decision_factors:
+  critical:
+    - "Factor crítico 1"
+  important:
+    - "Factor importante 1"
+  nice_to_have:
+    - "Factor deseable 1"
+
+# Mapeo de Objeciones por Tipo
+objection_mappings:
+  # Opciones por tipo:
+  # - No incluir el tipo = No aplica
+  # - type: true = Usa expresiones genéricas
+  # - type: [lista] = Expresiones específicas
+  
+  price:
+    - "Expresión específica de precio para esta industria"
+  
+  fit:
+    - "Expresión específica de ajuste para esta industria"
+  
+  trust: true  # Ejemplo de objeción genérica
+  
+  # technical: no incluido = no aplica
+
+# Metadata
+metadata:
+  typical_conversation_duration: "X-Y minutos"
+  expertise_required: "bajo|medio|alto"
+  emotional_involvement: "bajo|medio|alto|muy alto"
+  stakeholder_complexity: "bajo|medio|alto"
+

@@ -1,4 +1,0 @@
-# Configuration files with sensitive information
-conversation_instructions.yaml
-*.yaml
-*.yml

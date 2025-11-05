@@ -1,0 +1,96 @@
+# Sales Situation - Plantilla de Ejemplo
+# Copia este archivo y renómbralo: {fase}_{urgencia}_{objecion}.yaml
+
+id: "phase_urgency_objection"
+name: "Phase - Urgency - Objection"
+version: "1.0.0"
+
+# Fase de Venta (Aspecto 1)
+sales_phase:
+  phase: "prospección|descubrimiento|presentacion|manejo_objeciones|cierre|postventa"
+  phase_name: "Nombre de la Fase"
+  objective: "Objetivo principal de esta fase"
+  key_activities:
+    - "Actividad clave 1"
+    - "Actividad clave 2"
+
+# Nivel de Urgencia (Aspecto 7)
+urgency:
+  level: "baja|media|alta"
+  description: "Descripción de la urgencia del cliente"
+  timeline: "Timeline para decisión"
+  implication: "Qué significa para el proceso de venta"
+  timeline_expectation: "Expectativa concreta de tiempo"
+
+# Tipo de Objeción Principal (Aspecto 4)
+# Tipos válidos: price, value, fit, risk, trust, need, competition, technical
+primary_objection:
+  type: "price"  # Uno de los 8 tipos válidos
+  label: "Etiqueta descriptiva"
+  description: "Descripción de la objeción"
+  
+  # Expresiones genéricas (aplicables a cualquier industria)
+  generic_expressions:
+    - "Expresión genérica 1"
+    - "Expresión genérica 2"
+  
+  # Las expresiones específicas vienen de industry_context.objection_mappings
+  
+  handling_approach:
+    - "Estrategia de manejo 1"
+    - "Estrategia de manejo 2"
+
+# Estado del Cliente (Aspecto 5)
+client_state:
+  temperature: "frío|tibio|caliente"
+  temperature_description: "Descripción del nivel de interés"
+  buyer_journey_phase: "awareness|consideracion|decision"
+  journey_description: "Descripción de la fase"
+  previous_experience: "ninguna|basica|intermedia|evaluacion_completada"
+  experience_description: "Descripción de experiencia"
+  experience_impact: "Impacto en la conversación"
+
+# Estructura de Decisión (Aspecto 6)
+decision_structure:
+  authority: "decisor_unico|influencer|decisor_conjunto|necesita_aprobacion"
+  authority_description: "Descripción de autoridad"
+  role: "Rol del interlocutor"
+  role_description: "Descripción del rol"
+  participants: 1|2|3
+  participants_description: "Descripción de participantes"
+  decision_timeline: "corto|medio|largo"
+  approval_required: true|false
+
+# Flujo de Conversación Esperado
+conversation_flow:
+  opening:
+    - "Paso de apertura 1"
+  middle:
+    - "Paso intermedio 1"
+  closing:
+    - "Paso de cierre 1"
+
+# Comportamiento Esperado del Cliente
+client_behavior:
+  engagement_style: "Estilo de engagement"
+  information_seeking: "bajo|medio|alto"
+  skepticism_level: "bajo|medio|alto"
+  typical_questions:
+    - "Pregunta típica 1"
+  typical_statements:
+    - "Declaración típica 1"
+
+# Success Metrics
+success_metrics:
+  - "Métrica de éxito 1"
+  - "Métrica de éxito 2"
+
+# Metadata
+metadata:
+  difficulty: "bajo|medio|alto"
+  typical_duration: "X-Y minutos"
+  conversion_probability: "baja|media|alta"
+  seller_skills_tested:
+    - "Habilidad 1"
+    - "Habilidad 2"
+

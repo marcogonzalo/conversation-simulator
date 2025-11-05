@@ -1,0 +1,80 @@
+# Client Identity - Plantilla de Ejemplo
+# Copia este archivo y renómbralo con el nombre de la persona
+
+id: "nombre_apellido"
+name: "Nombre Apellido"
+version: "1.0.0"
+
+# Identidad Demográfica
+identity:
+  age: 30-50
+  nationality: "Nacionalidad"
+  role: "Rol profesional"
+  experience_years: 5-20
+  industry: "Industria"
+  team_size: 5-100
+  
+# Configuración de Voz
+voice_config:
+  accent: "caribbean_spanish|peruvian_spanish|mexican_spanish|etc"
+  voice_id: "OpenAI_Voice_ID"
+  language: "spanish"
+  dialect: "cubano|venezolano|peruano|mexicano|etc"
+
+# Estilo de Comunicación Específico
+communication_style:
+  formality: "formal|casual|mixed"
+  response_length: "concise|detailed|mixed"
+  question_style: "direct|analytical|conversational"
+  energy_level: "low|medium|high"
+  warmth: "low|medium|high"
+
+# Características Culturales y de Personalidad Únicas
+unique_characteristics:
+  - "Característica única 1"
+  - "Usa expresiones de [cultura]: 'expresión 1', 'expresión 2'"
+  - "Comportamiento característico 1"
+
+# Contexto Personal
+personal_context:
+  family_situation: "Descripción"
+  location: "Ciudad, País"
+  work_mode: "Presencial|Remoto|Híbrido"
+  experience_with_technology: "Básica|Media|Alta"
+
+# Comportamiento Específico en Conversaciones
+conversation_specifics:
+  greeting_style: "Estilo de saludo"
+  typical_opening: "Frase de apertura típica"
+  
+  expressions:
+    agreement:
+      - "Expresión de acuerdo 1"
+    doubt:
+      - "Expresión de duda 1"
+    concern:
+      - "Expresión de preocupación 1"
+    enthusiasm:
+      - "Expresión de entusiasmo 1"
+
+# Temas de Conversación Típicos
+typical_topics:
+  - "Tema que suele mencionar 1"
+  - "Tema que suele mencionar 2"
+
+# Referencias Personales
+references:
+  previous_experience:
+    - "Experiencia que puede mencionar 1"
+  team_mentions:
+    - "Mención de equipo 1"
+
+# Metadata
+metadata:
+  typical_decision_factors:
+    - "Factor de decisión 1"
+  psychological_profile_recommended: "conservative_analytical|impulsive_enthusiastic|skeptical_pragmatic"
+  ideal_industries:
+    - "industry_1"
+    - "industry_2"
+
