@@ -268,14 +268,26 @@ fly deploy
 
 ## 🧪 Testing
 
+### Backend Tests
+
 ```bash
 # Backend tests
 cd backend
 python -m pytest
 
+# Run with coverage
+pytest tests/ -v --cov=src --cov-report=html --cov-fail-under=58
+````
+
+### Frontend Tests
+
+```bash
 # Frontend tests
 cd frontend
 npm test
+
+# Run with coverage
+npm run test:coverage
 ```
 
 ## 📈 Métricas de Éxito
