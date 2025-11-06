@@ -19,8 +19,13 @@ class TestSQLConversationRepository:
 
     @pytest.fixture
     def repository(self):
-        """Create repository instance."""
-        return SQLConversationRepository()
+        """Create repository instance with mocked DB config."""
+        with patch('src.conversation.infrastructure.persistence.sql_conversation_repo.DatabaseConfig') as mock_db_class:
+            mock_db_instance = Mock()
+            mock_db_class.return_value = mock_db_instance
+            repo = SQLConversationRepository()
+            repo.db_config = mock_db_instance
+            return repo
 
     @pytest.fixture
     def sample_conversation(self):

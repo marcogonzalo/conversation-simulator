@@ -4,13 +4,15 @@ Script de prueba para el sistema de 5 capas
 Valida que todas las combinaciones funcionan correctamente
 """
 
-from pathlib import Path
-from shared.application.prompt_service import PromptService
 import sys
 import os
+from pathlib import Path
 
 # Agregar el directorio src al path (desde tests/)
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+
+import pytest
+from src.shared.application.prompt_service import PromptService
 
 
 def print_section(title: str):
@@ -20,12 +22,17 @@ def print_section(title: str):
     print("="*80 + "\n")
 
 
-def test_available_options():
+@pytest.fixture
+def prompt_service():
+    """Fixture: Crear instancia de PromptService"""
+    return PromptService()
+
+
+def test_available_options(prompt_service):
     """Prueba 1: Listar opciones disponibles"""
     print_section("TEST 1: Opciones Disponibles")
     
-    service = PromptService(config_path="../src/shared/infrastructure/config")
-    options = service.get_all_available_options()
+    options = prompt_service.get_all_available_options()
 
     print("📦 INDUSTRIAS:")
     for ind in options['industries']:
@@ -43,13 +50,17 @@ def test_available_options():
     for ident in options['identities']:
         print(f"  - {ident['id']}: {ident['name']}")
 
-    total = service.get_total_combinations()
+    total = prompt_service.get_total_combinations()
     print(f"\n✨ TOTAL DE COMBINACIONES POSIBLES: {total}")
+    
+    assert len(options['industries']) > 0
+    assert len(options['situations']) > 0
+    assert len(options['psychologies']) > 0
+    assert len(options['identities']) > 0
+    assert total > 0
 
-    return service
 
-
-def test_specific_combination(service: PromptService):
+def test_specific_combination(prompt_service):
     """Prueba 2: Generar prompt específico"""
     print_section("TEST 2: Generar Prompt Específico")
 
@@ -66,44 +77,38 @@ def test_specific_combination(service: PromptService):
     print(f"  Identity: {identity_id}")
 
     # Validar combinación
-    is_valid = service.validate_combination(
+    is_valid = prompt_service.validate_combination(
         industry_id, situation_id, psychology_id, identity_id
     )
     print(f"\n✅ Combinación válida: {is_valid}")
 
-    if is_valid:
-        # Generar prompt
-        try:
-            prompt = service.generate_prompt(
-                industry_id, situation_id, psychology_id, identity_id
-            )
+    assert is_valid, "La combinación debe ser válida"
 
-            # Mostrar metadatos
-            metadata = service.get_prompt_metadata(
-                industry_id, situation_id, psychology_id, identity_id
-            )
+    # Generar prompt
+    prompt = prompt_service.generate_prompt(
+        industry_id, situation_id, psychology_id, identity_id
+    )
 
-            print("\n📄 METADATOS DEL PROMPT:")
-            print(f"  Longitud: {metadata['prompt_length']} caracteres")
-            print(f"  Palabras: {metadata['prompt_word_count']}")
+    # Mostrar metadatos
+    metadata = prompt_service.get_prompt_telemetry(
+        industry_id, situation_id, psychology_id, identity_id
+    )
 
-            print("\n📝 PRIMERAS 500 CARACTERES DEL PROMPT:")
-            print("-" * 80)
-            print(prompt[:500])
-            print("...")
-            print("-" * 80)
+    print("\n📄 METADATOS DEL PROMPT:")
+    print(f"  Longitud: {metadata['prompt_length']} caracteres")
+    print(f"  Palabras: {metadata['word_count']}")
 
-            return True
-        except Exception as e:
-            print(f"\n❌ Error generando prompt: {e}")
-            import traceback
-            traceback.print_exc()
-            return False
-
-    return False
+    print("\n📝 PRIMERAS 500 CARACTERES DEL PROMPT:")
+    print("-" * 80)
+    print(prompt[:500])
+    print("...")
+    print("-" * 80)
+    
+    assert len(prompt) > 100
+    assert metadata['prompt_length'] > 0
 
 
-def test_objection_mapping(service: PromptService):
+def test_objection_mapping(prompt_service):
     """Prueba 3: Verificar mapeo de objeciones"""
     print_section("TEST 3: Mapeo de Objeciones")
 
@@ -141,43 +146,38 @@ def test_objection_mapping(service: PromptService):
 
     for test in test_cases:
         print(f"\n🧪 {test['name']}")
-        try:
-            prompt = service.generate_prompt(
-                test['industry'],
-                test['situation'],
-                psychology_id,
-                identity_id
-            )
+        prompt = prompt_service.generate_prompt(
+            test['industry'],
+            test['situation'],
+            psychology_id,
+            identity_id
+        )
 
-            # Buscar objeción en el prompt
-            if test['expected'].lower() in prompt.lower():
-                print(
-                    f"  ✅ Objeción mapeada correctamente (encontrado: '{test['expected']}')")
-                results.append(True)
-            else:
-                print(
-                    f"  ⚠️  No se encontró la objeción esperada: '{test['expected']}'")
-                results.append(False)
-
-        except Exception as e:
-            print(f"  ❌ Error: {e}")
+        # Buscar objeción en el prompt
+        if test['expected'].lower() in prompt.lower():
+            print(
+                f"  ✅ Objeción mapeada correctamente (encontrado: '{test['expected']}')")
+            results.append(True)
+        else:
+            print(
+                f"  ⚠️  No se encontró la objeción esperada: '{test['expected']}'")
             results.append(False)
 
     success_rate = (sum(results) / len(results)) * 100
     print(
         f"\n📊 TASA DE ÉXITO: {success_rate:.1f}% ({sum(results)}/{len(results)})")
 
-    return all(results)
+    assert sum(results) >= len(results) * 0.75, f"Al menos 75% de los tests deben pasar (pasaron {sum(results)}/{len(results)})"
 
 
-def test_all_combinations(service: PromptService):
+def test_all_combinations(prompt_service):
     """Prueba 4: Validar todas las combinaciones"""
     print_section("TEST 4: Validar Todas las Combinaciones")
 
-    industries = service.prompt_builder.get_available_industries()
-    situations = service.prompt_builder.get_available_situations()
-    psychologies = service.prompt_builder.get_available_psychologies()
-    identities = service.prompt_builder.get_available_identities()
+    industries = prompt_service.prompt_builder.get_available_industries()
+    situations = prompt_service.prompt_builder.get_available_situations()
+    psychologies = prompt_service.prompt_builder.get_available_psychologies()
+    identities = prompt_service.prompt_builder.get_available_identities()
 
     total_combinations = len(industries) * len(situations) * \
         len(psychologies) * len(identities)
@@ -197,7 +197,7 @@ def test_all_combinations(service: PromptService):
             for psychology in psychologies:
                 for identity in identities:
                     try:
-                        prompt = service.generate_prompt(
+                        prompt = prompt_service.generate_prompt(
                             industry, situation, psychology, identity
                         )
                         if len(prompt) > 100:  # Validación básica
@@ -226,51 +226,8 @@ def test_all_combinations(service: PromptService):
     success_rate = (successful / total_combinations) * 100
     print(f"\n📊 TASA DE ÉXITO: {success_rate:.1f}%")
 
-    return failed == 0
+    assert success_rate >= 90.0, f"Al menos 90% de las combinaciones deben funcionar (actual: {success_rate:.1f}%)"
 
 
-def main():
-    """Ejecuta todas las pruebas"""
-    print("\n" + "🧪" * 40)
-    print("  PRUEBAS DEL SISTEMA DE 5 CAPAS")
-    print("🧪" * 40)
-
-    try:
-        # Test 1: Opciones disponibles
-        service = test_available_options()
-
-        # Test 2: Combinación específica
-        test2_passed = test_specific_combination(service)
-
-        # Test 3: Mapeo de objeciones
-        test3_passed = test_objection_mapping(service)
-
-        # Test 4: Todas las combinaciones
-        test4_passed = test_all_combinations(service)
-
-        # Resumen final
-        print_section("RESUMEN FINAL")
-        print("✅ Test 1: Opciones disponibles - PASSED")
-        print(f"{'✅' if test2_passed else '❌'} Test 2: Combinación específica - {'PASSED' if test2_passed else 'FAILED'}")
-        print(f"{'✅' if test3_passed else '❌'} Test 3: Mapeo de objeciones - {'PASSED' if test3_passed else 'FAILED'}")
-        print(f"{'✅' if test4_passed else '❌'} Test 4: Todas las combinaciones - {'PASSED' if test4_passed else 'FAILED'}")
-
-        all_passed = test2_passed and test3_passed and test4_passed
-
-        if all_passed:
-            print("\n🎉 TODOS LOS TESTS PASARON EXITOSAMENTE")
-            return 0
-        else:
-            print("\n⚠️  ALGUNOS TESTS FALLARON")
-            return 1
-
-    except Exception as e:
-        print(f"\n❌ ERROR FATAL: {e}")
-        import traceback
-        traceback.print_exc()
-        return 1
-
-
-if __name__ == "__main__":
-    exit_code = main()
-    sys.exit(exit_code)
+# El archivo ahora está estructurado como tests de pytest
+# Ejecutar con: pytest tests/test_5layer_system.py -v

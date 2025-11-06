@@ -16,6 +16,7 @@ from src.conversation.domain.services.conversation_domain_service import Convers
 
 
 @pytest.mark.integration
+@pytest.mark.skip(reason="Legacy persona system - replaced by 5-layer system with client_identity")
 class TestPersonaIntegration:
     """Integration tests for persona system with real implementations."""
     
