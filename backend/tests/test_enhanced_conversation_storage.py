@@ -3,8 +3,6 @@ Tests for enhanced conversation storage functionality.
 """
 import pytest
 import json
-import tempfile
-import shutil
 from pathlib import Path
 from uuid import UUID
 from datetime import datetime
@@ -217,33 +215,33 @@ class TestMessageProcessingService:
 class TestEnhancedConversationRepository:
     """Test enhanced conversation repository."""
     
-    def setup_method(self):
-        """Set up test fixtures."""
-        self.temp_dir = tempfile.mkdtemp()
-        self.repo = EnhancedConversationRepository(
-            conversations_dir=f"{self.temp_dir}/conversations",
-            enhanced_dir=f"{self.temp_dir}/enhanced"
+    @pytest.fixture
+    def repo(self, tmp_path):
+        """Create repository with temp directory."""
+        return EnhancedConversationRepository(
+            conversations_dir=str(tmp_path / "conversations"),
+            enhanced_dir=str(tmp_path / "enhanced")
         )
-        self.conversation_id = ConversationId(UUID("12345678-1234-1234-1234-123456789012"))
     
-    def teardown_method(self):
-        """Clean up test fixtures."""
-        shutil.rmtree(self.temp_dir)
+    @pytest.fixture
+    def conversation_id(self):
+        """Create test conversation ID."""
+        return ConversationId(UUID("12345678-1234-1234-1234-123456789012"))
     
     @pytest.mark.asyncio
-    async def test_save_and_load_enhanced_messages(self):
+    async def test_save_and_load_enhanced_messages(self, repo, conversation_id):
         """Test saving and loading enhanced messages."""
         # Create messages
         messages = [
-            EnhancedMessage.create_user_message(self.conversation_id, "Hello"),
-            EnhancedMessage.create_assistant_message(self.conversation_id, "Hi there!")
+            EnhancedMessage.create_user_message(conversation_id, "Hello"),
+            EnhancedMessage.create_assistant_message(conversation_id, "Hi there!")
         ]
         
         # Save
-        await self.repo.save_enhanced_conversation(self.conversation_id, messages)
+        await repo.save_enhanced_conversation(conversation_id, messages)
         
         # Load
-        loaded_messages = await self.repo.get_enhanced_messages(self.conversation_id)
+        loaded_messages = await repo.get_enhanced_messages(conversation_id)
         
         assert len(loaded_messages) == 2
         assert loaded_messages[0].role == "user"
@@ -252,30 +250,30 @@ class TestEnhancedConversationRepository:
         assert loaded_messages[1].get_display_content() == "Hi there!"
     
     @pytest.mark.asyncio
-    async def test_add_enhanced_message(self):
+    async def test_add_enhanced_message(self, repo, conversation_id):
         """Test adding enhanced messages to conversation."""
         # Add first message
-        message1 = EnhancedMessage.create_user_message(self.conversation_id, "Hello")
-        await self.repo.add_enhanced_message(self.conversation_id, message1)
+        message1 = EnhancedMessage.create_user_message(conversation_id, "Hello")
+        await repo.add_enhanced_message(conversation_id, message1)
         
         # Add second message
-        message2 = EnhancedMessage.create_assistant_message(self.conversation_id, "Hi!")
-        await self.repo.add_enhanced_message(self.conversation_id, message2)
+        message2 = EnhancedMessage.create_assistant_message(conversation_id, "Hi!")
+        await repo.add_enhanced_message(conversation_id, message2)
         
         # Verify
-        messages = await self.repo.get_enhanced_messages(self.conversation_id)
+        messages = await repo.get_enhanced_messages(conversation_id)
         assert len(messages) == 2
     
     @pytest.mark.asyncio
-    async def test_update_message_content(self):
+    async def test_update_message_content(self, repo, conversation_id):
         """Test updating message content."""
         # Create and save message
-        message = EnhancedMessage.create_user_message(self.conversation_id, "Original content")
-        await self.repo.save_enhanced_conversation(self.conversation_id, [message])
+        message = EnhancedMessage.create_user_message(conversation_id, "Original content")
+        await repo.save_enhanced_conversation(conversation_id, [message])
         
         # Update content
-        success = await self.repo.update_message_content(
-            self.conversation_id, 
+        success = await repo.update_message_content(
+            conversation_id, 
             message.id, 
             "Updated content"
         )
@@ -283,26 +281,26 @@ class TestEnhancedConversationRepository:
         assert success
         
         # Verify update
-        messages = await self.repo.get_enhanced_messages(self.conversation_id)
+        messages = await repo.get_enhanced_messages(conversation_id)
         assert messages[0].get_display_content() == "Updated content"
     
     @pytest.mark.asyncio
-    async def test_conversation_statistics(self):
+    async def test_conversation_statistics(self, repo, conversation_id):
         """Test conversation statistics."""
         # Create messages with different types
         messages = [
-            EnhancedMessage.create_user_message(self.conversation_id, "Hello"),
-            EnhancedMessage.create_assistant_message(self.conversation_id, "Hi!")
+            EnhancedMessage.create_user_message(conversation_id, "Hello"),
+            EnhancedMessage.create_assistant_message(conversation_id, "Hi!")
         ]
         
         # Add audio metadata to first message
         audio_metadata = AudioMetadata(duration_ms=2000)
         messages[0].add_audio_url("audio_url", audio_metadata)
         
-        await self.repo.save_enhanced_conversation(self.conversation_id, messages)
+        await repo.save_enhanced_conversation(conversation_id, messages)
         
         # Get statistics
-        stats = await self.repo.get_conversation_statistics(self.conversation_id)
+        stats = await repo.get_conversation_statistics(conversation_id)
         
         assert stats['total_messages'] == 2
         assert stats['user_messages'] == 1
@@ -314,85 +312,87 @@ class TestEnhancedConversationRepository:
 class TestEnhancedConversationService:
     """Test enhanced conversation service."""
     
-    def setup_method(self):
-        """Set up test fixtures."""
-        self.temp_dir = tempfile.mkdtemp()
-        
-        # Create mock conversation repository
+    @pytest.fixture
+    def conversation_repo(self):
+        """Create mock conversation repository."""
         from unittest.mock import AsyncMock
-        self.conversation_repo = AsyncMock()
+        return AsyncMock()
         
-        # Create enhanced repository
-        self.enhanced_repo = EnhancedConversationRepository(
-            conversations_dir=f"{self.temp_dir}/conversations",
-            enhanced_dir=f"{self.temp_dir}/enhanced"
+    @pytest.fixture
+    def enhanced_repo(self, tmp_path):
+        """Create enhanced repository with temp directory."""
+        return EnhancedConversationRepository(
+            conversations_dir=str(tmp_path / "conversations"),
+            enhanced_dir=str(tmp_path / "enhanced")
         )
         
-        # Create service
-        self.service = EnhancedConversationService(self.conversation_repo, self.enhanced_repo)
-        self.conversation_id = ConversationId(UUID("12345678-1234-1234-1234-123456789012"))
+    @pytest.fixture
+    def service(self, conversation_repo, enhanced_repo):
+        """Create enhanced conversation service."""
+        return EnhancedConversationService(conversation_repo, enhanced_repo)
     
-    def teardown_method(self):
-        """Clean up test fixtures."""
-        shutil.rmtree(self.temp_dir)
+    @pytest.fixture
+    def conversation_id(self):
+        """Create test conversation ID."""
+        return ConversationId(UUID("12345678-1234-1234-1234-123456789012"))
     
     @pytest.mark.asyncio
-    async def test_process_text_chunks_integration(self):
+    async def test_process_text_chunks_integration(self, service, conversation_id):
         """Test processing text chunks end-to-end."""
         # Process chunks
-        message = await self.service.process_text_chunk(
-            conversation_id=self.conversation_id,
+        message = await service.process_text_chunk(
+            conversation_id=conversation_id,
             role="user",
             content="Hello",
             is_final=False
         )
         
         # Verify message was saved
-        loaded_messages = await self.service.get_enhanced_messages(self.conversation_id)
+        loaded_messages = await service.get_enhanced_messages(conversation_id)
         assert len(loaded_messages) == 1
         assert loaded_messages[0].get_display_content() == "Hello"
     
     @pytest.mark.asyncio
-    async def test_conversation_summary(self):
+    async def test_conversation_summary(self, service, conversation_id):
         """Test conversation summary generation."""
         # Add messages
-        await self.service.process_text_chunk(
-            conversation_id=self.conversation_id,
+        await service.process_text_chunk(
+            conversation_id=conversation_id,
             role="user",
             content="Hello",
             is_final=True
         )
         
-        await self.service.process_text_chunk(
-            conversation_id=self.conversation_id,
+        await service.process_text_chunk(
+            conversation_id=conversation_id,
             role="assistant",
             content="Hi there!",
             is_final=True
         )
         
         # Get summary
-        summary = await self.service.get_conversation_summary(self.conversation_id)
+        summary = await service.get_conversation_summary(conversation_id)
         
         assert summary['total_messages'] == 2
         assert summary['user_messages'] == 1
         assert summary['assistant_messages'] == 1
     
     @pytest.mark.asyncio
-    async def test_export_for_analysis(self):
+    async def test_export_for_analysis(self, service, conversation_id):
         """Test exporting conversation for analysis."""
         # Add messages
-        await self.service.process_text_chunk(
-            conversation_id=self.conversation_id,
+        await service.process_text_chunk(
+            conversation_id=conversation_id,
             role="user",
             content="Hello",
             is_final=True
         )
         
         # Export
-        export_data = await self.service.export_conversation_for_analysis(self.conversation_id)
+        export_data = await service.export_conversation_for_analysis(conversation_id)
         
         assert export_data is not None
-        assert export_data['conversation_id'] == str(self.conversation_id.value)
+        assert export_data['conversation_id'] == str(conversation_id.value)
         assert len(export_data['messages']) == 1
         assert export_data['messages'][0]['role'] == "user"
         assert export_data['messages'][0]['content'] == "Hello"

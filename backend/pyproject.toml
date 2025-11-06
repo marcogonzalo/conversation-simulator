@@ -128,7 +128,11 @@ omit = [
     "*/migrations/*",
     "src/main.py",
     "src/api/gateway.py",
-    "src/api/routes/*.py",
+    "src/api/routes/websocket.py",
+    "src/api/routes/websocket_helpers.py",
+    "src/api/routes/conversation.py",
+    "src/api/routes/analysis.py",
+    "src/api/routes/conversation_analysis.py",
 ]
 
 [tool.coverage.report]
