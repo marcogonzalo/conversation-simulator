@@ -7,8 +7,8 @@ from fastapi import FastAPI
 from unittest.mock import Mock, patch, AsyncMock
 from uuid import uuid4
 
-# Import routers
-from src.api.routes import conversation, analysis, audio, persona
+# Import routers (persona route removed - legacy system)
+from src.api.routes import conversation, analysis, audio
 
 
 @pytest.fixture
@@ -18,7 +18,7 @@ def app():
     app.include_router(conversation.router, prefix="/api/v1")
     app.include_router(analysis.router, prefix="/api/v1")
     app.include_router(audio.router, prefix="/api/v1")
-    app.include_router(persona.router, prefix="/api/v1")
+    # persona router removed - legacy system
     return app
 
 
@@ -88,19 +88,5 @@ class TestAudioRoutes:
         assert response.status_code in [200, 201, 400, 422, 500]
 
 
-# Persona Routes Tests
-class TestPersonaRoutes:
-    """Basic tests for persona routes"""
-    
-    def test_get_personas_endpoint_exists(self, client):
-        """Test GET /personas endpoint exists"""
-        response = client.get("/api/v1/personas")
-        # Endpoint exists
-        assert response.status_code in [200, 500]
-    
-    def test_get_persona_by_id_endpoint_exists(self, client):
-        """Test GET /personas/{id} endpoint exists"""
-        response = client.get("/api/v1/personas/test_persona")
-        # Endpoint exists
-        assert response.status_code in [200, 404, 500]
+# Persona routes removed - legacy system replaced by 5-layer configuration
 

@@ -11,7 +11,6 @@ export const apiConfig = {
   // HTTP API endpoints
   baseUrl: API_BASE_URL,
   conversations: `${API_BASE_URL}/api/v1/conversations/`,
-  personas: `${API_BASE_URL}/api/v1/personas/`,
   analysis: `${API_BASE_URL}/api/v1/analysis/`,
   prompts: `${API_BASE_URL}/api/v1/prompts/`,
   

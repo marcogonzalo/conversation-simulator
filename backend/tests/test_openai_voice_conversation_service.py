@@ -15,10 +15,7 @@ from src.conversation.domain.value_objects.conversation_id import ConversationId
 # from src.conversation.domain.value_objects.transcription_id import TranscriptionId  # Not used in tests
 from src.conversation.domain.entities.conversation import ConversationStatus
 from src.conversation.application.dtos.conversation_dto import ConversationDTO, ConversationResultDTO
-from src.persona.domain.entities.persona import Persona
-from src.persona.domain.value_objects.persona_id import PersonaId
-from src.persona.domain.entities.persona import AccentType
-from src.persona.domain.value_objects.personality_traits import PersonalityTraits, PersonalityTrait
+# Legacy persona imports removed - module deleted
 
 
 class TestOpenAIVoiceConversationService:
@@ -53,30 +50,7 @@ class TestOpenAIVoiceConversationService:
         service.get_voice_for_persona.return_value = "alloy"
         return service
 
-    @pytest.fixture
-    def mock_persona_repository(self):
-        """Mock persona repository."""
-        repo = AsyncMock()
-        persona = Persona(
-            persona_id=PersonaId(value="test-persona-id"),
-            name="Test Persona",
-            description="Test description",
-            background="Test background",
-            personality_traits=PersonalityTraits.from_strings(["friendly"]),
-            accent=AccentType.CARIBBEAN_SPANISH,
-            voice_id="alloy",
-            prompt_template="You are a helpful assistant",
-            conversation_goals=["help customers"],
-            pain_points=["time constraints"],
-            objections=["price concerns"],
-            decision_factors=["quality", "price"],
-            budget_range="medium",
-            timeline="3 months",
-            company_size="small",
-            industry="technology"
-        )
-        repo.get_by_id.return_value = persona
-        return repo
+    # Legacy persona repository fixture removed
 
     @pytest.fixture
     def mock_transcription_service(self):
@@ -114,12 +88,11 @@ class TestOpenAIVoiceConversationService:
 
     @pytest.fixture
     def service(self, mock_conversation_service, mock_voice_service, 
-                mock_persona_repository, mock_transcription_service):
+                mock_transcription_service):
         """Create service instance with mocked dependencies."""
         return OpenAIVoiceConversationService(
             conversation_service=mock_conversation_service,
             voice_service=mock_voice_service,
-            persona_repository=mock_persona_repository,
             transcription_service=mock_transcription_service
         )
 

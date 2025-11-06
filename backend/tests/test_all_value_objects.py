@@ -9,8 +9,7 @@ from datetime import datetime
 from src.shared.domain.value_objects import MessageContent
 from src.conversation.domain.value_objects.conversation_id import ConversationId
 from src.conversation.domain.value_objects.message_content import MessageContent as ConvMessageContent
-from src.persona.domain.value_objects.persona_id import PersonaId
-from src.persona.domain.value_objects.personality_traits import PersonalityTraits
+# Legacy persona imports removed - module deleted
 from src.audio.domain.value_objects.audio_id import AudioId
 from src.audio.domain.value_objects.audio_format import AudioFormat
 from src.analysis.domain.value_objects.analysis_id import AnalysisId
@@ -57,46 +56,7 @@ class TestAllValueObjects:
         assert cid1.value != cid3.value
         assert str(cid1) == str(uid1)
     
-    # PersonaId tests
-    def test_persona_id_all_cases(self):
-        """Test PersonaId comprehensively"""
-        pid1 = PersonaId(value="ana_garcia")
-        pid2 = PersonaId(value="ana_garcia")
-        pid3 = PersonaId(value="carlos_mendoza")
-        
-        assert pid1.value == pid2.value
-        assert pid1.value != pid3.value
-        assert str(pid1) == "ana_garcia"
-    
-    # PersonalityTraits tests
-    def test_personality_traits_all_cases(self):
-        """Test PersonalityTraits comprehensively"""
-        # Normal case
-        pt1 = PersonalityTraits(
-            openness=0.8,
-            conscientiousness=0.7,
-            extraversion=0.6,
-            agreeableness=0.75,
-            neuroticism=0.3
-        )
-        
-        assert pt1.openness == 0.8
-        assert pt1.conscientiousness == 0.7
-        assert pt1.extraversion == 0.6
-        assert pt1.agreeableness == 0.75
-        assert pt1.neuroticism == 0.3
-        
-        # Edge cases
-        pt2 = PersonalityTraits(
-            openness=0.0,
-            conscientiousness=1.0,
-            extraversion=0.5,
-            agreeableness=0.5,
-            neuroticism=0.5
-        )
-        
-        assert pt2.openness == 0.0
-        assert pt2.conscientiousness == 1.0
+    # Legacy persona tests removed - module deleted
     
     # AudioId tests
     def test_audio_id_all_cases(self):
@@ -181,12 +141,10 @@ class TestAllValueObjects:
     def test_different_value_object_types_independent(self):
         """Test different value object types are independent"""
         cid = ConversationId(value=uuid4())
-        pid = PersonaId(value="test")
         aid = AnalysisId(value="analysis")
         
         # All should be different types
-        assert type(cid) != type(pid)
-        assert type(pid) != type(aid)
+        assert type(cid) != type(aid)
     
     def test_value_objects_immutable(self):
         """Test value objects are immutable"""
@@ -199,36 +157,13 @@ class TestAllValueObjects:
     def test_all_value_objects_hashable(self):
         """Test all value objects can be used in sets"""
         cid = ConversationId(value=uuid4())
-        pid = PersonaId(value="test")
         ms = MetricScore(value=75)
         
         # Should not raise
-        value_set = {cid, pid, ms}
-        assert len(value_set) == 3
+        value_set = {cid, ms}
+        assert len(value_set) == 2
     
-    def test_value_objects_with_special_strings(self):
-        """Test value objects with special characters"""
-        pid1 = PersonaId(value="ana_garcia")
-        pid2 = PersonaId(value="carlos-mendoza")
-        pid3 = PersonaId(value="maria.rodriguez")
-        
-        assert "_" in pid1.value
-        assert "-" in pid2.value
-        assert "." in pid3.value
-    
-    def test_personality_traits_average(self):
-        """Test personality traits average calculation"""
-        traits = PersonalityTraits(
-            openness=0.8,
-            conscientiousness=0.6,
-            extraversion=0.4,
-            agreeableness=0.7,
-            neuroticism=0.5
-        )
-        
-        # Sum should equal components
-        total = (0.8 + 0.6 + 0.4 + 0.7 + 0.5)
-        assert total == 3.0
+    # Legacy persona tests removed
     
     def test_audio_format_equality(self):
         """Test AudioFormat equality"""

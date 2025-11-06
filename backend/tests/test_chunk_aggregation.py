@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from src.conversation.application.services.openai_voice_conversation_service import OpenAIVoiceConversationService
 from src.conversation.application.services.conversation_application_service import ConversationApplicationService
 from src.audio.application.services.openai_voice_application_service import OpenAIVoiceApplicationService
-from src.persona.infrastructure.repositories.yaml_persona_repository import YAMLPersonaRepository
+# Legacy persona import removed
 from src.shared.infrastructure.external_apis.api_config import APIConfig
 
 
@@ -23,13 +23,12 @@ class TestChunkAggregation:
         self.conversation_service = AsyncMock(spec=ConversationApplicationService)
         self.conversation_service.send_message = AsyncMock()
         self.voice_service = AsyncMock(spec=OpenAIVoiceApplicationService)
-        self.persona_repo = AsyncMock(spec=YAMLPersonaRepository)
+        # Legacy persona_repo removed
         self.api_config = APIConfig()
         
         self.service = OpenAIVoiceConversationService(
             conversation_service=self.conversation_service,
             voice_service=self.voice_service,
-            persona_repository=self.persona_repo,
             api_config=self.api_config
         )
     

@@ -16,8 +16,7 @@ from src.conversation.infrastructure.repositories.enhanced_conversation_reposito
 from src.conversation.infrastructure.services.transcription_file_service import TranscriptionFileService
 from src.audio.application.services.openai_voice_application_service import OpenAIVoiceApplicationService
 from src.audio.infrastructure.repositories.memory_audio_repository import MemoryAudioRepository
-from src.persona.domain.repositories.persona_repository import PersonaRepository
-from src.persona.infrastructure.repositories.yaml_persona_repository import YAMLPersonaRepository
+# Legacy persona imports removed - now using 5-layer system with client_identity
 from src.shared.infrastructure.external_apis.api_config import APIConfig
 from src.shared.infrastructure.messaging.event_bus import event_bus
 from src.api.routes.websocket_helpers import manager, send_error, send_pong, send_transcribed_text, send_processing_status, send_text_response, send_audio_response, send_persona_info, send_analysis_result
@@ -51,10 +50,6 @@ def get_voice_application_service(
     """Get OpenAI voice application service instance."""
     return OpenAIVoiceApplicationService(audio_repo, api_config)
 
-def get_persona_repository() -> PersonaRepository:
-    """Get persona repository instance."""
-    return YAMLPersonaRepository()
-
 def get_enhanced_conversation_repository() -> EnhancedConversationRepository:
     """Get enhanced conversation repository instance."""
     return None  # Temporarily disabled
@@ -62,7 +57,6 @@ def get_enhanced_conversation_repository() -> EnhancedConversationRepository:
 def get_voice_conversation_service(
     conversation_service: ConversationApplicationService = Depends(get_conversation_application_service),
     voice_service: OpenAIVoiceApplicationService = Depends(get_voice_application_service),
-    persona_repo: PersonaRepository = Depends(get_persona_repository),
     enhanced_repo: EnhancedConversationRepository = Depends(get_enhanced_conversation_repository),
     transcription_service: TranscriptionFileService = Depends(lambda: TranscriptionFileService())
 ) -> OpenAIVoiceConversationService:
@@ -71,7 +65,6 @@ def get_voice_conversation_service(
     return OpenAIVoiceConversationService(
         conversation_service=conversation_service,
         voice_service=voice_service,
-        persona_repository=persona_repo,
         enhanced_repository=enhanced_repo,
         transcription_service=transcription_service,
         api_config=api_config

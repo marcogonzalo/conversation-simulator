@@ -4,13 +4,14 @@ Basic functionality tests that work with the actual implementation.
 import pytest
 
 
+@pytest.mark.skip(reason="Legacy persona module removed")
 def test_persona_creation():
-    """Test creating a persona."""
-    from src.persona.domain.entities.persona import Persona, AccentType
-    from src.persona.domain.value_objects.personality_traits import PersonalityTraits
-    from src.persona.domain.value_objects.persona_id import PersonaId
-    
-    persona_id = PersonaId("test-id")
+    """Test creating a persona - LEGACY."""
+    pass
+
+
+def test_persona_id_removed():
+    """Persona ID test - LEGACY REMOVED"""
     personality_traits = PersonalityTraits(["friendly"])
     
     persona = Persona(
@@ -86,18 +87,15 @@ def test_conversation_service_creation():
     # Create mocks for dependencies
     mock_conversation_service = Mock()
     mock_voice_service = Mock()
-    mock_persona_repository = Mock()
     
     # Create service instance
     service = OpenAIVoiceConversationService(
         conversation_service=mock_conversation_service,
-        voice_service=mock_voice_service,
-        persona_repository=mock_persona_repository
+        voice_service=mock_voice_service
     )
     
     assert service.conversation_service == mock_conversation_service
     assert service.voice_service == mock_voice_service
-    assert service.persona_repository == mock_persona_repository
 
 
 def test_audio_service_creation():
@@ -120,12 +118,10 @@ def test_audio_chunks_initialization():
     # Create mocks for dependencies
     mock_conversation_service = Mock()
     mock_voice_service = Mock()
-    mock_persona_repository = Mock()
     
     service = OpenAIVoiceConversationService(
         conversation_service=mock_conversation_service,
-        voice_service=mock_voice_service,
-        persona_repository=mock_persona_repository
+        voice_service=mock_voice_service
     )
     
     # Test that audio_chunks is initialized
@@ -142,12 +138,10 @@ def test_active_conversations_initialization():
     # Create mocks for dependencies
     mock_conversation_service = Mock()
     mock_voice_service = Mock()
-    mock_persona_repository = Mock()
     
     service = OpenAIVoiceConversationService(
         conversation_service=mock_conversation_service,
-        voice_service=mock_voice_service,
-        persona_repository=mock_persona_repository
+        voice_service=mock_voice_service
     )
     
     # Test that active_conversations is initialized

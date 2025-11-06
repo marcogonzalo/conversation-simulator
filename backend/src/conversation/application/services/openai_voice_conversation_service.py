@@ -19,9 +19,6 @@ from src.conversation.application.services.conversation_application_service impo
 from src.conversation.domain.services.message_processing_service import MessageProcessingService
 from src.conversation.infrastructure.repositories.enhanced_conversation_repository import EnhancedConversationRepository
 from src.conversation.infrastructure.services.transcription_file_service import TranscriptionFileService
-from src.persona.domain.entities.persona import Persona
-from src.persona.domain.repositories.persona_repository import PersonaRepository
-from src.persona.domain.value_objects.persona_id import PersonaId
 from src.shared.infrastructure.messaging.event_bus import event_bus
 from src.shared.infrastructure.external_apis.api_config import APIConfig
 from src.api.routes.websocket_helpers import send_error, send_transcribed_text, send_processing_status, send_audio_response, send_audio_chunk
@@ -36,14 +33,12 @@ class OpenAIVoiceConversationService:
         self,
         conversation_service: ConversationApplicationService,
         voice_service: OpenAIVoiceApplicationService,
-        persona_repository: PersonaRepository,
         enhanced_repository: Optional[EnhancedConversationRepository] = None,
         transcription_service: Optional[TranscriptionFileService] = None,
         api_config: Optional[APIConfig] = None
     ):
         self.conversation_service = conversation_service
         self.voice_service = voice_service
-        self.persona_repository = persona_repository
         self.transcription_service = transcription_service or TranscriptionFileService()
         self.api_config = api_config or APIConfig()
         self.event_bus = event_bus
