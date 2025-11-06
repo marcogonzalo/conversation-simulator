@@ -10,7 +10,7 @@ Un simulador de clientes para que agentes de ventas puedan practicar y mejorar s
 - **Recomendaciones personalizadas** de contenido educativo basado en performance
 - **Interfaz minimalista** enfocada en la experiencia conversacional
 
-## �� Testing y Calidad
+## Testing y Calidad
 
 ### Pre-commit Checks
 
@@ -291,7 +291,7 @@ npm test
 
 ### Estructura del Proyecto
 
-```mermaid
+```text
 conversation-simulator/
 ├── backend/                           # FastAPI + DDD
 │   ├── src/
