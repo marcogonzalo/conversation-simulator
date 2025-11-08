@@ -5,6 +5,10 @@ import os
 import logging
 from typing import Optional, Dict, Any
 
+from src.shared.infrastructure.config.ai_defaults import (
+    TEXT_AI_DEFAULTS,
+    VOICE_AI_DEFAULTS,
+)
 logger = logging.getLogger(__name__)
 
 
@@ -35,13 +39,13 @@ class APIConfig:
         # Text AI model settings
         self.ai_model = os.getenv("AI_MODEL", "gpt-4o-mini")
         self.openai_model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")  # For OpenAI service factory
-        self.ai_temperature = float(os.getenv("AI_TEMPERATURE", "0.7"))
-        self.ai_max_tokens = int(os.getenv("AI_MAX_TOKENS", "1000"))
+        self.ai_temperature = TEXT_AI_DEFAULTS.temperature
+        self.ai_max_tokens = TEXT_AI_DEFAULTS.max_tokens
         
-        # OpenAI Voice-to-Voice settings
+        # Voice AI settings (provider-agnostic)
         self.openai_voice_model = os.getenv("OPENAI_VOICE_MODEL", "4o-mini-realtime-preview")
-        self.openai_voice_temperature = float(os.getenv("OPENAI_VOICE_TEMPERATURE", "0.8"))
-        self.openai_voice_max_tokens = int(os.getenv("OPENAI_VOICE_MAX_TOKENS", "4096"))
+        self.voice_temperature = VOICE_AI_DEFAULTS.temperature
+        self.voice_max_tokens = VOICE_AI_DEFAULTS.max_tokens
         # Voice detection settings
         self.voice_detection_threshold = float(os.getenv("VOICE_DETECTION_THRESHOLD", "0.5"))
         self.voice_detection_prefix_padding_ms = int(os.getenv("VOICE_DETECTION_PREFIX_PADDING_MS", "300"))
@@ -88,8 +92,8 @@ class APIConfig:
         return {
             "api_key": self.openai_api_key,
             "model": self.openai_voice_model,
-            "temperature": self.openai_voice_temperature,
-            "max_tokens": self.openai_voice_max_tokens,
+            "temperature": self.voice_temperature,
+            "max_tokens": self.voice_max_tokens,
             "voice_detection": {
                 "threshold": self.voice_detection_threshold,
                 "prefix_padding_ms": self.voice_detection_prefix_padding_ms,
