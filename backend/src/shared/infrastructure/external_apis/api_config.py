@@ -42,10 +42,6 @@ class APIConfig:
         self.openai_voice_model = os.getenv("OPENAI_VOICE_MODEL", "4o-mini-realtime-preview")
         self.openai_voice_temperature = float(os.getenv("OPENAI_VOICE_TEMPERATURE", "0.8"))
         self.openai_voice_max_tokens = int(os.getenv("OPENAI_VOICE_MAX_TOKENS", "4096"))
-        self.openai_voice_input_format = os.getenv("OPENAI_VOICE_INPUT_FORMAT", "pcm16")
-        self.openai_voice_output_format = os.getenv("OPENAI_VOICE_OUTPUT_FORMAT", "pcm16")
-        self.openai_voice_default_voice = os.getenv("OPENAI_VOICE_DEFAULT_VOICE", "alloy")
-        
         # Voice detection settings
         self.voice_detection_threshold = float(os.getenv("VOICE_DETECTION_THRESHOLD", "0.5"))
         self.voice_detection_prefix_padding_ms = int(os.getenv("VOICE_DETECTION_PREFIX_PADDING_MS", "300"))
@@ -94,9 +90,6 @@ class APIConfig:
             "model": self.openai_voice_model,
             "temperature": self.openai_voice_temperature,
             "max_tokens": self.openai_voice_max_tokens,
-            "input_format": self.openai_voice_input_format,
-            "output_format": self.openai_voice_output_format,
-            "default_voice": self.openai_voice_default_voice,
             "voice_detection": {
                 "threshold": self.voice_detection_threshold,
                 "prefix_padding_ms": self.voice_detection_prefix_padding_ms,
