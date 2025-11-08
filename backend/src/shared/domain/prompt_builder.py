@@ -582,19 +582,19 @@ class PromptBuilder:
             # Combinar todas las partes en orden lógico
             base_prompt = f"""---INSTRUCTIONAL CONTENT---
 # Contexto para la conversación por orden de precedencia e importancia:
-<simulation_rules>
+<simulation_rules index="1" priority="1">
 {rules_prompt}
 </simulation_rules>
-<industry_context>
+<industry_context index="2" priority="2">
 {industry_prompt}
 </industry_context>
-<sales_situation>
+<sales_situation index="3" priority="3">
 {situation_prompt}
 </sales_situation>
-<client_psychology>
+<client_psychology index="4" priority="4">
 {psychology_prompt}
 </client_psychology>
-<client_identity>
+<client_identity index="5" priority="5">
 {identity_prompt}
 </client_identity>
 ---END INSTRUCTIONAL CONTENT---
