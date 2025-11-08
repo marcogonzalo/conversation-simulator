@@ -1,5 +1,5 @@
 """
-Unit tests for VoiceConversationService (provider-agnostic).
+Unit tests for OpenAIVoiceConversationService.
 Tests critical functionality including type consistency and message ordering.
 """
 import pytest

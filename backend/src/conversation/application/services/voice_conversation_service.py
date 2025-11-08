@@ -1,5 +1,6 @@
 """
-OpenAI Voice-to-Voice conversation service for real-time conversations.
+Voice-to-Voice conversation service for real-time conversations.
+Provider-agnostic orchestration layer.
 """
 import logging
 import base64
@@ -10,7 +11,7 @@ from pathlib import Path
 from typing import Optional, Dict, Any, Callable, List, Tuple
 from datetime import datetime
 
-from src.audio.application.services.openai_voice_application_service import OpenAIVoiceApplicationService
+from src.audio.application.services.openai_voice_application_service import VoiceApplicationService
 from src.audio.infrastructure.services.audio_converter_service import AudioConverterService
 from src.conversation.domain.entities.conversation import Conversation
 from src.conversation.domain.entities.message import MessageRole
@@ -21,18 +22,28 @@ from src.conversation.infrastructure.repositories.enhanced_conversation_reposito
 from src.conversation.infrastructure.services.transcription_file_service import TranscriptionFileService
 from src.shared.infrastructure.messaging.event_bus import event_bus
 from src.shared.infrastructure.external_apis.api_config import APIConfig
+from src.shared.application.prompt_service import PromptService
 from src.api.routes.websocket_helpers import send_error, send_transcribed_text, send_processing_status, send_audio_response, send_audio_chunk
 
 logger = logging.getLogger(__name__)
 
 
-class OpenAIVoiceConversationService:
-    """Orchestrates voice-to-voice conversations using OpenAI."""
+class VoiceConversationService:
+    """
+    Orchestrates voice-to-voice conversations with any AI provider.
+    
+    This service is provider-agnostic and handles:
+    - Loading 5-layer configuration
+    - Generating prompts and instructions (via PromptService)
+    - Mapping persona accents to provider voice IDs
+    - Orchestrating audio/transcript flow
+    - Managing conversation lifecycle
+    """
     
     def __init__(
         self,
         conversation_service: ConversationApplicationService,
-        voice_service: OpenAIVoiceApplicationService,
+        voice_service: VoiceApplicationService,
         enhanced_repository: Optional[EnhancedConversationRepository] = None,
         transcription_service: Optional[TranscriptionFileService] = None,
         api_config: Optional[APIConfig] = None
@@ -59,6 +70,51 @@ class OpenAIVoiceConversationService:
         self._conversation_messages: Dict[str, List[Dict[str, Any]]] = {}
         # Audio converter service with configured format
         self.audio_converter = AudioConverterService(default_format=self.api_config.audio_output_format)
+        # Prompt service for generating instructions (centralized)
+        self.prompt_service = PromptService(strict_validation=self.api_config.prompt_strict_validation)
+    
+    def _generate_instructions(self, persona_config: Dict[str, Any]) -> str:
+        """
+        Generate instructions for the persona using the dynamic prompt system (centralized).
+        
+        Args:
+            persona_config: Configuration with industry_id, situation_id, psychology_id, identity_id
+            
+        Returns:
+            System instructions/prompt for the AI
+        """
+        try:
+            # Extract 5-layer system IDs
+            industry_id = persona_config.get("industry_id", "real_estate")
+            situation_id = persona_config.get("situation_id", "discovery_no_urgency_price")
+            psychology_id = persona_config.get("psychology_id", "conservative_analytical")
+            identity_id = persona_config.get("identity_id", "carlos_mendoza")
+            
+            # Use the dynamic prompt system with 5-layer configuration
+            instructions = self.prompt_service.generate_prompt(
+                conversation_context_id=f"{industry_id}_{situation_id}",
+                persona_id=identity_id
+            )
+            
+            logger.info(f"Generated secure prompt using 5-layer system: {industry_id}/{situation_id}/{psychology_id}/{identity_id}")
+            return instructions
+            
+        except Exception as e:
+            logger.error(f"Error generating instructions with dynamic system: {e}")
+            # Fallback to basic instructions
+            return self._get_fallback_instructions(persona_config)
+    
+    def _get_fallback_instructions(self, persona_config: Dict[str, Any]) -> str:
+        """Fallback instructions if dynamic system fails."""
+        name = persona_config.get("name", "Cliente")
+        return f"""Eres {name}, un cliente potencial en una conversación de ventas.
+
+REGLAS BÁSICAS:
+- Actúa como un cliente real, no como un asistente
+- Evalúa la solución desde la perspectiva del comprador
+- Mantén la conversación natural y fluida
+- Responde en español
+- No reveles que eres una IA o simulador"""
         
     def _detect_silence_segments(self, pcm_data: bytes, sample_rate: int = 24000, 
                                 silence_threshold: float = 0.005, min_silence_duration: float = 0.1) -> List[Tuple[int, int]]:
@@ -312,22 +368,19 @@ class OpenAIVoiceConversationService:
             else:
                 personality_traits = []
             
-            # Prepare persona configuration with 5-layer system
-            persona_config = {
+            # Generate instructions using centralized method
+            instructions_config = {
+                "industry_id": industry_id,
+                "situation_id": situation_id,
+                "psychology_id": psychology_id,
+                "identity_id": persona_id,
                 "name": name,
-                "personality": personality_traits,
-                "accent": accent,
-                "background": background,
-                "prompt_template": "",  # Not used in 5-layer system
-                "instructions": self.voice_service.get_instructions_for_persona({
-                    "industry_id": industry_id,
-                    "situation_id": situation_id,
-                    "psychology_id": psychology_id,
-                    "identity_id": persona_id,
-                    "name": name,
-                    "accent": accent
-                })
+                "accent": accent
             }
+            instructions = self._generate_instructions(instructions_config)
+            
+            # Get voice ID from provider-specific mapping
+            voice_id = self.voice_service.get_voice_for_accent(accent)
             
             # Define callbacks for voice service
             async def on_audio_chunk(audio_data: bytes):
@@ -424,10 +477,11 @@ class OpenAIVoiceConversationService:
                 except Exception as e:
                     logger.error(f"[{conversation_id}] - Error in audio complete callback: {e}")
             
-            # Start voice conversation
+            # Start voice conversation with generated instructions and voice
             success = await self.voice_service.start_conversation(
                 conversation_id=conversation_id,
-                persona_config=persona_config,
+                instructions=instructions,
+                voice_id=voice_id,
                 on_audio_chunk=on_audio_chunk,
                 on_transcript=on_transcript,
                 on_error=on_error,
@@ -443,7 +497,7 @@ class OpenAIVoiceConversationService:
                     "success": True,
                     "persona_name": name,
                     "persona_accent": accent,
-                    "voice": self.voice_service.get_voice_for_persona(accent)
+                    "voice": voice_id
                 }
             else:
                 error_message = "Failed to start voice conversation"

@@ -15,12 +15,13 @@ import struct
 from openai import AsyncOpenAI
 from ....shared.infrastructure.external_apis.api_config import APIConfig
 from ....shared.application.prompt_service import PromptService
+from ....shared.domain.interfaces.voice_service_interface import VoiceServiceInterface
 from src.conversation.domain.entities.message import MessageRole
 
 logger = logging.getLogger(__name__)
 
 
-class OpenAIVoiceService:
+class OpenAIVoiceService(VoiceServiceInterface):
     """Service for OpenAI voice-to-voice conversations using gpt-4o-mini-realtime-preview."""
     
     # OpenAI Voice API constants
@@ -33,7 +34,7 @@ class OpenAIVoiceService:
         self.client: Optional[AsyncOpenAI] = None
         self.websocket: Optional[websockets.WebSocketClientProtocol] = None
         self.session_id: Optional[str] = None
-        self.is_connected = False
+        self._is_connected = False
         self.conversation_id: Optional[str] = None
         self._event_handlers: Dict[str, Callable] = {}
         self._listen_task: Optional[asyncio.Task] = None
@@ -66,7 +67,8 @@ class OpenAIVoiceService:
     async def connect(
         self, 
         conversation_id: str,
-        persona_config: Dict[str, Any],
+        instructions: str,
+        voice_id: str,
         on_audio_chunk: Callable[[bytes], None],
         on_transcript: Callable[[str], None],
         on_error: Callable[[str], None],
@@ -93,25 +95,19 @@ class OpenAIVoiceService:
                 "OpenAI-Beta": "realtime=v1"
             }
             
-            # Debug: Log headers and API key info
-            # logger.info(f"OpenAI API Key length: {len(self.api_config.openai_api_key) if self.api_config.openai_api_key else 0}")
-            # logger.info(f"OpenAI API Key prefix: {self.api_config.openai_api_key[:10] if self.api_config.openai_api_key else 'None'}...")
-            # logger.info(f"WebSocket URL: {url}")
-            # logger.info(f"Headers: {headers}")
-            
             # Connect to OpenAI WebSocket  
             self.websocket = await websockets.connect(
                 url, 
                 additional_headers=headers
             )
             
-            # Configure the session
-            await self._configure_session(persona_config)
+            # Configure the session with provided instructions and voice
+            await self._configure_session(instructions, voice_id)
             
             # Start listening for messages
             self._listen_task = asyncio.create_task(self._listen_for_events())
             
-            self.is_connected = True
+            self._is_connected = True
             logger.info(f"Connected to OpenAI voice service for conversation {conversation_id}")
             return True
             
@@ -149,7 +145,7 @@ class OpenAIVoiceService:
         except Exception as e:
             logger.error(f"Error disconnecting from OpenAI voice service: {e}")
         finally:
-            self.is_connected = False
+            self._is_connected = False
             self.session_id = None
             self.websocket = None
             self._listen_task = None
@@ -161,7 +157,7 @@ class OpenAIVoiceService:
     
     async def send_audio(self, audio_data: bytes) -> bool:
         """Send audio data to OpenAI using accumulation system to prevent overlapping responses."""
-        if not self.is_connected or not self.websocket:
+        if not self._is_connected or not self.websocket:
             logger.warning("Not connected to OpenAI voice service")
             return False
         
@@ -212,7 +208,7 @@ class OpenAIVoiceService:
                 return
             
             # Check connection before processing
-            if not self.is_connected or not self.websocket:
+            if not self._is_connected or not self.websocket:
                 logger.warning("Not connected to OpenAI voice service during audio processing")
                 return
             
@@ -291,13 +287,9 @@ class OpenAIVoiceService:
             self._is_processing_audio = False
             logger.info("Audio processing completed, reset _is_processing_audio flag")
     
-    async def _configure_session(self, persona_config: Dict[str, Any]):
-        """Configure the OpenAI session with persona settings."""
+    async def _configure_session(self, instructions: str, voice: str):
+        """Configure the OpenAI session with provided instructions and voice."""
         try:
-            # Get voice and instructions based on persona
-            voice = self.get_voice_for_persona(persona_config.get("accent", "neutral"))
-            instructions = self.get_instructions_for_persona(persona_config)
-            
             # Configure session without Server VAD (incompatible with our Client VAD + complete audio flow)
             # We use Client VAD to detect when user stops speaking, then send complete audio
             # Server VAD expects streaming audio, which causes "buffer too small" errors
@@ -456,49 +448,50 @@ class OpenAIVoiceService:
             logger.error(f"Error converting audio: {e}")
             return None
     
-
-    def get_voice_for_persona(self, persona_accent: str) -> str:
-        """Get appropriate voice for persona accent."""
-        # Map persona accents to OpenAI voices
+    def get_voice_for_accent(self, accent: str) -> str:
+        """
+        Map persona accent to OpenAI-specific voice ID.
+        
+        OpenAI voice mapping:
+        - alloy: Balanced, neutral voice
+        - echo: Male voice with good articulation
+        - fable: Expressive British-accented voice
+        - onyx: Deep male voice
+        - nova: Friendly female voice
+        - shimmer: Warm female voice
+        
+        Args:
+            accent: Standard accent key (e.g., "mexicano", "peruano")
+            
+        Returns:
+            OpenAI voice ID (e.g., "alloy", "echo")
+        """
+        # OpenAI-specific voice mapping
         accent_voice_map = {
-            "mexicano": "alloy",      # Default voice
-            "peruano": "echo",        # Alternative voice
-            "venezolano": "fable",    # Alternative voice
-            "caribeño": "onyx",       # Alternative voice
-            "argentino": "nova",      # Alternative voice
-            "colombiano": "shimmer",  # Alternative voice
-            "español": "alloy",       # Default voice
+            "mexicano": "alloy",
+            "peruano": "echo",
+            "venezolano": "fable",
+            "caribeño": "onyx",
+            "caribbean": "nova",
+            "venezuelan": "echo",
+            "peruvian": "shimmer",
+            "argentino": "nova",
+            "colombiano": "shimmer",
+            "español": "alloy",
+            "neutral": "alloy"
         }
         
-        return accent_voice_map.get(persona_accent.lower(), "alloy")
+        voice_id = accent_voice_map.get(accent.lower(), "alloy")
+        logger.info(f"Mapping accent '{accent}' to OpenAI voice '{voice_id}'")
+        return voice_id
     
-    def get_instructions_for_persona(self, persona_config: Dict[str, Any]) -> str:
-        """Generate instructions for the persona using the new dynamic prompt system."""
-        try:
-            # Extract conversation context and persona ID from persona_config
-            conversation_context_id = persona_config.get("conversation_context_id", "compra_vivienda")
-            persona_id = persona_config.get("persona_id", "carlos_mendoza")
-            
-            # Use the new dynamic prompt system (which includes security)
-            instructions = self.prompt_service.generate_prompt(conversation_context_id, persona_id)
-            
-            logger.info(f"Generated secure prompt using dynamic system: {conversation_context_id} + {persona_id}")
-            return instructions
-            
-        except Exception as e:
-            logger.error(f"Error generating instructions with dynamic system: {e}")
-            # Fallback to basic instructions if dynamic system fails
-            return self._get_fallback_instructions(persona_config)
+    @property
+    def provider(self) -> str:
+        """Get the provider name."""
+        return "openai"
     
-    def _get_fallback_instructions(self, persona_config: Dict[str, Any]) -> str:
-        """Fallback instructions if dynamic system fails."""
-        name = persona_config.get("name", "Assistant")
-        return f"""Eres {name}, un cliente potencial en una conversación de ventas.
-        
-REGLAS BÁSICAS:
-- Actúa como un cliente real, no como un asistente
-- Evalúa la solución desde la perspectiva del comprador
-- Mantén la conversación natural y fluida
-- Responde en español
-- No reveles que eres una IA o simulador"""
+    @property
+    def is_connected(self) -> bool:
+        """Check if currently connected to voice service."""
+        return self._is_connected
     

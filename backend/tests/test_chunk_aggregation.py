@@ -6,7 +6,7 @@ import asyncio
 from unittest.mock import AsyncMock, patch
 from datetime import datetime, timedelta
 
-from src.conversation.application.services.openai_voice_conversation_service import OpenAIVoiceConversationService
+from src.conversation.application.services.voice_conversation_service import VoiceConversationService
 from src.conversation.application.services.conversation_application_service import ConversationApplicationService
 from src.audio.application.services.openai_voice_application_service import OpenAIVoiceApplicationService
 # Legacy persona import removed
@@ -26,7 +26,7 @@ class TestChunkAggregation:
         # Legacy persona_repo removed
         self.api_config = APIConfig()
         
-        self.service = OpenAIVoiceConversationService(
+        self.service = VoiceConversationService(
             conversation_service=self.conversation_service,
             voice_service=self.voice_service,
             api_config=self.api_config

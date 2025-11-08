@@ -60,9 +60,11 @@ class TestWorkingServices:
         assert hasattr(voice_service, 'api_config')
     
     def test_voice_service_get_instructions_method(self, voice_service):
-        """Test voice service has get_instructions_for_persona"""
-        assert hasattr(voice_service, 'get_instructions_for_persona')
-        assert callable(voice_service.get_instructions_for_persona)
+        """Test voice service basic functionality"""
+        # Métodos de dominio ahora están en VoiceConversationService (orquestador)
+        # VoiceService solo maneja comunicación técnica
+        assert hasattr(voice_service, 'connect')
+        assert callable(voice_service.connect)
     
     def test_voice_service_initialization_with_config(self):
         """Test voice service can be initialized with api_config"""

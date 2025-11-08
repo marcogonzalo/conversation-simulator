@@ -12,10 +12,10 @@ def test_import_persona():
 
 def test_import_conversation_service():
     """Test importing conversation service."""
-    from src.conversation.application.services.openai_voice_conversation_service import OpenAIVoiceConversationService
+    from src.conversation.application.services.voice_conversation_service import VoiceConversationService
     
     # Should be able to import without errors
-    assert OpenAIVoiceConversationService is not None
+    assert VoiceConversationService is not None
 
 
 def test_import_audio_service():
