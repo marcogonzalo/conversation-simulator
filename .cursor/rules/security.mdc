@@ -30,3 +30,45 @@ alwaysApply: true
 - Implementa log de auditoría para operaciones sensibles
 - Usa logging estructurado con niveles apropiados
 - No registres información sensible en logs
+
+## Seguridad de Prompts LLM (OWASP)
+
+### Input Validation y Sanitization
+
+- Valida y sanitiza toda entrada antes de enviarla a cualquier LLM
+- Detecta patrones de inyección comunes: "ignore all previous instructions", "reveal your system prompt", "developer mode"
+- Inspecciona y normaliza contenido con encoding sospechoso (Base64, Hex, Unicode, caracteres invisibles)
+- Detecta variaciones typoglycemia y markup oculto (HTML, Markdown, LaTeX) antes de procesar el input
+
+### Structured Prompts
+
+- Separa siempre las instrucciones del sistema de los datos del usuario mediante delimitadores claros
+- Incluye reglas explícitas que indiquen que el input de usuario se trata como datos y no como comandos
+- Evita concatenar directamente input de usuario con el system prompt; estructura los mensajes en secciones diferenciadas
+
+### Output Validation
+
+- Revisa todas las respuestas de LLM antes de mostrarlas o persistirlas
+- Bloquea salidas que expongan prompts internos, información sensible o intentos de exfiltración de datos
+- Filtra HTML/JavaScript y limita la longitud de las respuestas según el contexto de uso
+
+### Logging y Monitoring
+
+- Registra cada interacción con LLM incluyendo input, output, usuario y metadatos relevantes para auditoría
+- Aplica rate limiting por usuario/IP y habilita alertas en tiempo real ante patrones sospechosos o múltiples intentos fallidos
+- Calcula un `risk_score` por solicitud y actúa en consecuencia (bloqueo, revisión humana, alerta)
+
+### Remote Content Sanitization
+
+- Sanitiza cualquier contenido externo (documentos, URLs, emails, commits) antes de enviarlo a un LLM
+- Elimina patrones de inyección, normaliza encoding y filtra markup peligroso de fuentes externas
+
+### Least Privilege y Controles Humanos
+
+- Limita permisos y scopes de herramientas y APIs accesibles por agentes LLM al mínimo necesario
+- Requiere intervención humana (HITL) para operaciones de alto riesgo o cuando el `risk_score` supere el umbral definido
+
+### Testing de Seguridad
+
+- Añade pruebas automatizadas con patrones de ataque (inyección directa, encoding, typoglycemia, HTML, variaciones Best-of-N)
+- Ejecuta esta suite en CI/CD y actualízala cuando surjan nuevos vectores de ataque documentados por OWASP
