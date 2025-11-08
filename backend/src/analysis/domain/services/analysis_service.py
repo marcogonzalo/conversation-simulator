@@ -245,13 +245,13 @@ class AnalysisService:
         
         for field in required_fields:
             if field not in conversation_data:
-                raise AnalysisValidationError(f"Missing required field: {field}")
+                raise AnalysisValidationError(field, "Missing required field")
         
         if not conversation_data['messages']:
-            raise AnalysisValidationError("Conversation must have at least one message")
+            raise AnalysisValidationError('messages', "Conversation must have at least one message")
         
         if conversation_data['duration_seconds'] <= 0:
-            raise AnalysisValidationError("Conversation duration must be positive")
+            raise AnalysisValidationError('duration_seconds', "Conversation duration must be positive")
         
         return True
     

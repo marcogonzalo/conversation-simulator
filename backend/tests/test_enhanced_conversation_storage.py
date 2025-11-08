@@ -5,7 +5,7 @@ import pytest
 import json
 from pathlib import Path
 from uuid import UUID
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from src.conversation.domain.entities.enhanced_message import (
     EnhancedMessage, 
@@ -187,7 +187,7 @@ class TestMessageProcessingService:
         messages = []
         for i in range(3):
             message = EnhancedMessage.create_user_message(self.conversation_id)
-            message._timestamp = base_time.replace(second=base_time.second + i)
+            message._timestamp = base_time + timedelta(seconds=i)
             message.add_text_chunk(f"Chunk {i}", is_final=False)
             messages.append(message)
         
