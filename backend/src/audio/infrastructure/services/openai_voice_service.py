@@ -307,7 +307,7 @@ class OpenAIVoiceService(VoiceServiceInterface):
                     "turn_detection": None,  # Disabled: we use Client VAD + manual commit
                     "tools": [],
                     "tool_choice": "auto",
-                    "temperature": self.api_config.voice_temperature
+                    "temperature": self.api_config.get_openai_voice_config()["temperature"]
                 }
             }
             
