@@ -97,9 +97,9 @@ class GeminiVoiceService(VoiceServiceInterface):
             use_auto_vad = self._vad_mode == "auto"
             logger.info(f"Configuring Gemini with VAD mode: {self._vad_mode}, streaming: {self._use_streaming}")
             
-            # Build config step by step to identify issues
+            # Build optimized config for low latency
             config_dict = {
-                "response_modalities": ["AUDIO"],  # Only audio for now
+                "response_modalities": ["AUDIO"],  # AUDIO only - TEXT+AUDIO causes 1007 with current SDK
                 "system_instruction": types.Content(
                     parts=[types.Part(text=instructions)]
                 ),
@@ -110,9 +110,12 @@ class GeminiVoiceService(VoiceServiceInterface):
                         )
                     )
                 ),
-                # Enable transcriptions
+                # Enable transcriptions using empty dict (not AudioTranscriptionConfig which causes loops)
                 "input_audio_transcription": {},
-                "output_audio_transcription": {}
+                "output_audio_transcription": {},
+                # Use configured defaults for generation parameters
+                "temperature": self._temperature,
+                "max_output_tokens": self._max_tokens
             }
             
             # Add VAD configuration only for manual mode
@@ -367,10 +370,31 @@ class GeminiVoiceService(VoiceServiceInterface):
                 if hasattr(output_transcription, 'text'):
                     text_value = output_transcription.text
                     logger.info(f"🤖 Assistant transcript chunk ({len(text_value) if text_value else 0} chars): {text_value}")
-                    if text_value:
-                        # Just accumulate, don't send yet - we'll send the complete transcript on turn_complete
-                        self._assistant_transcript_accumulator += output_transcription.text
-                        logger.info(f"📝 Accumulated assistant transcript: {len(self._assistant_transcript_accumulator)} chars total")
+                    if text_value and self._on_transcript:
+                        # Gemini sends cumulative text, not deltas - calculate delta ourselves
+                        if text_value.startswith(self._assistant_transcript_accumulator):
+                            # Extract only the new part (delta)
+                            delta = text_value[len(self._assistant_transcript_accumulator):]
+                            if delta:  # Only send if there's actually new text
+                                logger.info(f"📤 Sending delta: '{delta}' (was: '{self._assistant_transcript_accumulator}', now: '{text_value}')")
+                                ai_response_timestamp = datetime.utcnow()
+                                await self._on_transcript(
+                                    delta,
+                                    MessageRole.ASSISTANT.value,
+                                    ai_response_timestamp
+                                )
+                            # Update accumulator with full text
+                            self._assistant_transcript_accumulator = text_value
+                        else:
+                            # Text doesn't start with accumulator - might be a new turn or reset
+                            logger.info(f"🔄 New transcript sequence detected, sending full text: '{text_value}'")
+                            ai_response_timestamp = datetime.utcnow()
+                            await self._on_transcript(
+                                text_value,
+                                MessageRole.ASSISTANT.value,
+                                ai_response_timestamp
+                            )
+                            self._assistant_transcript_accumulator = text_value
                 else:
                     logger.warning(f"⚠️ output_transcription has no 'text' attribute: {dir(output_transcription)}")
             
@@ -424,18 +448,9 @@ class GeminiVoiceService(VoiceServiceInterface):
                 
                 # Handle turn complete for assistant (response finished)
                 if hasattr(server_content, 'turn_complete') and server_content.turn_complete:
-                    logger.info(f"🏁 Turn complete - accumulated transcript length: {len(self._assistant_transcript_accumulator)}")
-                    # Send accumulated transcript as complete assistant response
-                    if self._assistant_transcript_accumulator and self._on_transcript:
-                        ai_response_timestamp = datetime.utcnow()
-                        logger.info(f"📤 Sending assistant transcript: {self._assistant_transcript_accumulator[:100]}...")
-                        await self._on_transcript(
-                            self._assistant_transcript_accumulator, 
-                            MessageRole.ASSISTANT.value, 
-                            ai_response_timestamp
-                        )
-                        # Reset accumulator for next response
-                        self._assistant_transcript_accumulator = ""
+                    logger.info(f"🏁 Turn complete - total transcript length: {len(self._assistant_transcript_accumulator)}")
+                    # Note: Transcripts already sent in streaming mode, just reset accumulator
+                    self._assistant_transcript_accumulator = ""
                     
                     # Trigger audio complete callback
                     if self._on_audio_complete:
