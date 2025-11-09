@@ -35,6 +35,8 @@ class VoiceServiceFactory:
             
             if provider == "openai":
                 return VoiceServiceFactory._create_openai_voice_service(config)
+            elif provider == "gemini":
+                return VoiceServiceFactory._create_gemini_voice_service(config)
             else:
                 logger.error(f"Unsupported voice AI provider: {provider}")
                 return None
@@ -60,9 +62,25 @@ class VoiceServiceFactory:
             return None
     
     @staticmethod
+    def _create_gemini_voice_service(config) -> Optional[VoiceServiceInterface]:
+        """Create Gemini voice service."""
+        try:
+            from src.audio.infrastructure.services.gemini_voice_service import GeminiVoiceService
+            
+            if not config.gemini_api_key:
+                logger.error("Gemini API key not configured")
+                return None
+            
+            return GeminiVoiceService(api_config=config)
+        
+        except Exception as e:
+            logger.error(f"Failed to create Gemini voice service: {e}")
+            return None
+    
+    @staticmethod
     def get_available_voice_providers() -> list:
         """Get list of available voice AI providers."""
-        return ["openai"]  # Will expand as new providers are added
+        return ["openai", "gemini"]
     
     @staticmethod
     def validate_voice_provider(provider: str) -> bool:

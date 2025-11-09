@@ -4,11 +4,11 @@ External API configuration for the application.
 import os
 import logging
 from typing import Optional, Dict, Any
-
 from src.shared.infrastructure.config.ai_defaults import (
-    TEXT_AI_DEFAULTS,
-    VOICE_AI_DEFAULTS,
+    OPENAI_VOICE_DEFAULTS,
+    GEMINI_VOICE_DEFAULTS,
 )
+
 logger = logging.getLogger(__name__)
 
 
@@ -18,6 +18,7 @@ class APIConfig:
     def __init__(self):
         # API Keys
         self.openai_api_key = os.getenv("OPENAI_API_KEY")
+        self.gemini_api_key = os.getenv("GEMINI_API_KEY")
         self.supabase_url = os.getenv("SUPABASE_URL")
         self.supabase_key = os.getenv("SUPABASE_KEY")
         
@@ -30,22 +31,27 @@ class APIConfig:
         
         # AI settings (for fallback text conversations)
         # Separate providers for text and voice AI
-        self.text_ai_provider = os.getenv("TEXT_AI_PROVIDER", os.getenv("AI_PROVIDER", "openai"))
-        self.voice_ai_provider = os.getenv("VOICE_AI_PROVIDER", os.getenv("AI_PROVIDER", "openai"))
+        self.text_ai_provider = os.getenv("TEXT_AI_PROVIDER", "openai")
+        self.voice_ai_provider = os.getenv("VOICE_AI_PROVIDER", "openai")
         
         # Legacy compatibility
         self.ai_provider = self.text_ai_provider  # For backward compatibility
         
-        # Text AI model settings
-        self.ai_model = os.getenv("AI_MODEL", "gpt-4o-mini")
-        self.openai_model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")  # For OpenAI service factory
-        self.ai_temperature = TEXT_AI_DEFAULTS.temperature
-        self.ai_max_tokens = TEXT_AI_DEFAULTS.max_tokens
+        # Text AI model settings (provider-specific)
+        self.openai_text_model = os.getenv("OPENAI_TEXT_MODEL", "gpt-4o-mini")
+        self.gemini_text_model = os.getenv("GEMINI_TEXT_MODEL", "gemini-1.5-pro")
         
-        # Voice AI settings (provider-agnostic)
+        # Legacy settings (for backward compatibility)
+        self.ai_model = os.getenv("AI_MODEL", "gpt-4o-mini")
+        self.openai_model = self.openai_text_model  # For OpenAI service factory compatibility
+        self.ai_temperature = float(os.getenv("AI_TEMPERATURE", "0.7"))
+        self.ai_max_tokens = int(os.getenv("AI_MAX_TOKENS", "1000"))
+        
+        # Voice-to-Voice model settings (only model names are configurable)
         self.openai_voice_model = os.getenv("OPENAI_VOICE_MODEL", "4o-mini-realtime-preview")
-        self.voice_temperature = VOICE_AI_DEFAULTS.temperature
-        self.voice_max_tokens = VOICE_AI_DEFAULTS.max_tokens
+        # Gemini Live API only supports gemini-2.0-flash-exp (experimental real-time model)
+        self.gemini_voice_model = os.getenv("GEMINI_VOICE_MODEL", "gemini-2.0-flash-exp")
+        
         # Voice detection settings
         self.voice_detection_threshold = float(os.getenv("VOICE_DETECTION_THRESHOLD", "0.5"))
         self.voice_detection_prefix_padding_ms = int(os.getenv("VOICE_DETECTION_PREFIX_PADDING_MS", "300"))
@@ -88,12 +94,28 @@ class APIConfig:
         return True
     
     def get_openai_voice_config(self) -> Dict[str, Any]:
-        """Get OpenAI voice configuration."""
+        """Get OpenAI voice configuration (format settings are internal to OpenAI service)."""
         return {
             "api_key": self.openai_api_key,
             "model": self.openai_voice_model,
-            "temperature": self.voice_temperature,
-            "max_tokens": self.voice_max_tokens,
+            "temperature": OPENAI_VOICE_DEFAULTS.temperature,
+            "max_tokens": OPENAI_VOICE_DEFAULTS.max_tokens,
+            "default_voice": OPENAI_VOICE_DEFAULTS.default_voice,
+            "voice_detection": {
+                "threshold": self.voice_detection_threshold,
+                "prefix_padding_ms": self.voice_detection_prefix_padding_ms,
+                "silence_duration_ms": self.voice_detection_silence_duration_ms
+            }
+        }
+    
+    def get_gemini_voice_config(self) -> Dict[str, Any]:
+        """Get Gemini voice configuration."""
+        return {
+            "api_key": self.gemini_api_key,
+            "model": self.gemini_voice_model,
+            "temperature": GEMINI_VOICE_DEFAULTS.temperature,
+            "max_tokens": GEMINI_VOICE_DEFAULTS.max_tokens,
+            "default_voice": GEMINI_VOICE_DEFAULTS.default_voice,
             "voice_detection": {
                 "threshold": self.voice_detection_threshold,
                 "prefix_padding_ms": self.voice_detection_prefix_padding_ms,
@@ -138,6 +160,7 @@ class APIConfig:
         """Get all configuration."""
         return {
             "openai_voice": self.get_openai_voice_config(),
+            "gemini_voice": self.get_gemini_voice_config(),
             "supabase": self.get_supabase_config(),
             "audio": self.get_audio_config(),
             "conversation": self.get_conversation_config(),
