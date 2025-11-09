@@ -242,12 +242,14 @@ class TestGeminiVoiceServiceAudio:
         await gemini_service._process_accumulated_audio()
         
         # Verify session.send was called with correct parameters
-        mock_session.send_realtime_input.assert_called_once()
-        call_kwargs = mock_session.send_realtime_input.call_args.kwargs
+        assert mock_session.send_realtime_input.call_count == 2
+        first_call_kwargs = mock_session.send_realtime_input.call_args_list[0].kwargs
         from google.genai import types  # import inside test to avoid global dependency
-        assert isinstance(call_kwargs["audio"], types.Blob)
-        assert call_kwargs["audio"].mime_type == "audio/pcm;rate=16000"
-        assert call_kwargs["audio"].data == test_audio
+        assert isinstance(first_call_kwargs["audio"], types.Blob)
+        assert first_call_kwargs["audio"].mime_type == "audio/pcm;rate=16000"
+        assert first_call_kwargs["audio"].data == test_audio
+        second_call_kwargs = mock_session.send_realtime_input.call_args_list[1].kwargs
+        assert second_call_kwargs.get("audio_stream_end") is True
     
     @pytest.mark.asyncio
     async def test_process_accumulated_audio_too_short(self, gemini_service, mock_api_config):

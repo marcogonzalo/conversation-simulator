@@ -50,7 +50,7 @@ class APIConfig:
         # Voice-to-Voice model settings (only model names are configurable)
         self.openai_voice_model = os.getenv("OPENAI_VOICE_MODEL", "4o-mini-realtime-preview")
         # Gemini Live API only supports gemini-2.0-flash-exp (experimental real-time model)
-        self.gemini_voice_model = os.getenv("GEMINI_VOICE_MODEL", "gemini-2.0-flash-exp")
+        self.gemini_voice_model = os.getenv("GEMINI_VOICE_MODEL", "gemini-2.5-flash-native-audio-preview-09-2025")
         
         # Voice detection settings
         self.voice_detection_threshold = float(os.getenv("VOICE_DETECTION_THRESHOLD", "0.5"))

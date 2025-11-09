@@ -30,6 +30,9 @@ class GeminiVoiceDefaults:
     temperature: float = 0.8
     max_tokens: int = 4096
     default_voice: str = "Puck"
+    # VAD mode: 'auto' (streaming + automatic detection) or 'manual' (buffering + activity signals)
+    # Using 'auto' - Gemini detects speech boundaries automatically
+    vad_mode: str = "auto"
 
 
 TEXT_AI_DEFAULTS = TextAIDefaults()

@@ -47,15 +47,22 @@ class GeminiVoiceService(VoiceServiceInterface):
         # Gemini handles turn detection, this timeout controls chunk aggregation size
         self._audio_timeout = 0.3  # 300ms for smooth chunk aggregation
         
-        # Store full text accumulator for transcription
+        # Store full text accumulators for transcriptions
         self._assistant_transcript_accumulator = ""
+        self._user_transcript_accumulator = ""
+        
+        # VAD mode configuration (internal defaults)
+        from src.shared.infrastructure.config.ai_defaults import GEMINI_VOICE_DEFAULTS
+        self._vad_mode = GEMINI_VOICE_DEFAULTS.vad_mode
+        # Derive streaming behavior from VAD mode
+        self._use_streaming = (self._vad_mode == "auto")
         
     async def __aenter__(self):
         """Async context manager entry."""
         if not self.api_config.gemini_api_key:
             raise ValueError("Gemini API key not configured")
             
-        self.client = genai.Client(api_key=self.api_config.gemini_api_key)
+        self.client = genai.Client(api_key=self.api_config.gemini_api_key, http_options={"api_version": "v1alpha"})
         return self
     
     async def __aexit__(self, exc_type, exc_val, exc_tb):
@@ -85,17 +92,38 @@ class GeminiVoiceService(VoiceServiceInterface):
             self._on_audio_complete = on_audio_complete
             self.conversation_id = conversation_id
             
-            # Configure Gemini Live session
-            config = types.LiveConnectConfig(
-                response_modalities=["AUDIO"],
-                speech_config=types.SpeechConfig(
+            # Configure Gemini Live session with system instructions
+            # Use both AUDIO and TEXT modalities for best experience
+            use_auto_vad = self._vad_mode == "auto"
+            logger.info(f"Configuring Gemini with VAD mode: {self._vad_mode}, streaming: {self._use_streaming}")
+            
+            # Build config step by step to identify issues
+            config_dict = {
+                "response_modalities": ["AUDIO"],  # Only audio for now
+                "system_instruction": types.Content(
+                    parts=[types.Part(text=instructions)]
+                ),
+                "speech_config": types.SpeechConfig(
                     voice_config=types.VoiceConfig(
                         prebuilt_voice_config=types.PrebuiltVoiceConfig(
                             voice_name=voice_id
                         )
                     )
+                ),
+                # Enable transcriptions
+                "input_audio_transcription": {},
+                "output_audio_transcription": {}
+            }
+            
+            # Add VAD configuration only for manual mode
+            if not use_auto_vad:
+                config_dict["realtime_input_config"] = types.RealtimeInputConfig(
+                    automatic_activity_detection=types.AutomaticActivityDetection(
+                        disabled=True
+                    )
                 )
-            )
+            
+            config = types.LiveConnectConfig(**config_dict)
             
             # Connect to Gemini Live API using async context manager
             # The session is managed as an async generator context manager
@@ -105,13 +133,7 @@ class GeminiVoiceService(VoiceServiceInterface):
             )
             self.session = await self._session_cm.__aenter__()
             
-            # Send initial system instructions as non-realtime content
-            await self.session.send_client_content(
-                turns=types.Content(
-                    role="user",
-                    parts=[types.Part(text=instructions)]
-                )
-            )
+            logger.info("Session established, waiting for initial model greeting...")
             
             # Start listening for events
             self._listen_task = asyncio.create_task(self._listen_for_events())
@@ -166,7 +188,7 @@ class GeminiVoiceService(VoiceServiceInterface):
             self._assistant_transcript_accumulator = ""
     
     async def send_audio(self, audio_data: bytes) -> bool:
-        """Send audio data to Gemini using accumulation system."""
+        """Send audio data to Gemini (streaming or buffered based on VAD mode)."""
         if not self._is_connected or not self.session:
             logger.warning("Not connected to Gemini Live API")
             return False
@@ -187,34 +209,45 @@ class GeminiVoiceService(VoiceServiceInterface):
             
             logger.info(f"Conversion successful: {len(pcm_audio)} bytes PCM16")
             
-            # Add to audio buffer
-            self._audio_buffer.append(pcm_audio)
-            logger.info(f"Added to buffer. Buffer now has {len(self._audio_buffer)} chunks, total bytes: {sum(len(c) for c in self._audio_buffer)}")
-            
-            # Cancel existing timer if it exists
-            if self._audio_timer and not self._audio_timer.done():
-                logger.info(f"Cancelling previous timer (buffer had {len(self._audio_buffer)-1} chunks before this one)")
-                self._audio_timer.cancel()
-            
-            # Start new timer to process accumulated audio
-            logger.info(f"Starting {self._audio_timeout}s timer to process buffer")
-            self._audio_timer = asyncio.create_task(self._process_accumulated_audio())
+            # Choose strategy based on VAD mode and streaming configuration
+            if self._use_streaming:
+                # STREAMING MODE: Send chunks immediately (for auto VAD)
+                await self.session.send_realtime_input(
+                    audio=types.Blob(
+                        data=pcm_audio,
+                        mime_type=f"audio/pcm;rate={self.GEMINI_SAMPLE_RATE}"
+                    )
+                )
+                logger.info(f"✅ Sent audio chunk to Gemini: {len(pcm_audio)} bytes (streaming)")
+            else:
+                # BUFFERING MODE: Accumulate chunks before sending (for manual VAD)
+                self._audio_buffer.append(pcm_audio)
+                logger.info(f"Added to buffer. Buffer now has {len(self._audio_buffer)} chunks, total bytes: {sum(len(c) for c in self._audio_buffer)}")
+                
+                # Cancel existing timer if it exists
+                if self._audio_timer and not self._audio_timer.done():
+                    logger.info(f"Cancelling previous timer (buffer had {len(self._audio_buffer)-1} chunks before this one)")
+                    self._audio_timer.cancel()
+                
+                # Start new timer to process accumulated audio
+                logger.info(f"Starting {self._audio_timeout}s timer to process buffer")
+                self._audio_timer = asyncio.create_task(self._process_accumulated_audio())
             
             return True
             
         except Exception as e:
-            logger.error(f"Error accumulating audio: {e}")
+            logger.error(f"Error sending audio: {e}")
             return False
     
     async def _process_accumulated_audio(self):
-        """Process all accumulated audio chunks as a single request to Gemini."""
+        """Process all accumulated audio chunks (used in buffering mode with manual VAD)."""
         try:
             # Wait for the timeout period
             await asyncio.sleep(self._audio_timeout)
             
             # Check if we're already processing audio
             if self._is_processing_audio:
-                logger.warning(f"Audio already being processed (is_processing_audio={self._is_processing_audio}), skipping")
+                logger.warning(f"Audio already being processed, skipping")
                 return
             
             # Check connection before processing
@@ -242,26 +275,36 @@ class GeminiVoiceService(VoiceServiceInterface):
             # Validate audio duration using configured minimum
             min_audio_bytes = self.api_config.audio_min_bytes_pcm
             if len(combined_audio) < min_audio_bytes:
-                logger.warning(f"Audio too short: {len(combined_audio)} bytes (minimum: {min_audio_bytes} bytes for {self.api_config.audio_min_duration_ms}ms) - skipping")
+                logger.warning(f"Audio too short: {len(combined_audio)} bytes (minimum: {min_audio_bytes} bytes) - skipping")
                 return
             
-            # Send combined audio to Gemini using realtime input
+            # In manual VAD mode, send activity signals to mark user turn boundaries
+            await self.session.send_realtime_input(
+                activity_start=types.ActivityStart()
+            )
+            logger.info("📢 Sent activityStart to Gemini")
+            
             await self.session.send_realtime_input(
                 audio=types.Blob(
                     data=combined_audio,
                     mime_type=f"audio/pcm;rate={self.GEMINI_SAMPLE_RATE}"
                 )
             )
-            logger.info(f"✅ Successfully sent audio to Gemini: {len(combined_audio)} bytes")
+            logger.info(f"🎤 Sent audio to Gemini: {len(combined_audio)} bytes")
+            
+            await self.session.send_realtime_input(
+                activity_end=types.ActivityEnd()
+            )
+            logger.info("🛑 Sent activityEnd to Gemini - user turn complete")
             
         except asyncio.CancelledError:
-            logger.info("Audio processing timer cancelled (more audio arrived, buffer preserved for next timer)")
+            logger.info("Audio processing timer cancelled (more audio arrived)")
             return
         except Exception as e:
             logger.error(f"Error processing accumulated audio: {e}", exc_info=True)
         finally:
             self._is_processing_audio = False
-            logger.info("Audio processing completed, reset _is_processing_audio flag")
+            logger.info("Audio processing completed")
     
     async def _listen_for_events(self):
         """Listen for events from Gemini Live API."""
@@ -269,49 +312,106 @@ class GeminiVoiceService(VoiceServiceInterface):
             # Reset assistant transcript accumulator at start
             self._assistant_transcript_accumulator = ""
             
-            # Listen for server messages
-            async for response in self.session.receive():
+            logger.info("🎧 Started listening for Gemini events")
+            
+            # Keep listening in a loop to handle multiple turns
+            # The session.receive() generator ends after each turn with parallel sends
+            while self._is_connected and self.session:
                 try:
-                    await self._handle_event(response)
+                    logger.info("🔄 Starting/restarting session.receive() loop")
+                    # Listen for server messages
+                    async for response in self.session.receive():
+                        try:
+                            logger.info(f"📨 Gemini event received: type={type(response).__name__}")
+                            logger.debug(f"📨 Full Gemini event: {response}")
+                            await self._handle_event(response)
+                        except Exception as e:
+                            logger.error(f"Error handling event: {e}", exc_info=True)
+                    
+                    # If we reach here, the generator ended
+                    if self._is_connected:
+                        logger.info("🔄 session.receive() ended, restarting listener for next turn")
+                        # No delay - restart immediately
+                    else:
+                        logger.info("🎧 Session disconnected, stopping listener")
+                        break
+                        
                 except Exception as e:
-                    logger.error(f"Error handling event: {e}")
+                    if self._is_connected:
+                        logger.error(f"Error in receive loop: {e}, retrying...", exc_info=True)
+                    else:
+                        logger.info("🎧 Session disconnected during error, stopping listener")
+                        break
+            
+            logger.info("🎧 Stopped listening for Gemini events")
         except Exception as e:
-            logger.error(f"Error listening for events: {e}")
+            logger.error(f"Error listening for events: {e}", exc_info=True)
             if self._on_error:
                 await self._on_error(f"Connection error: {str(e)}")
     
     async def _handle_event(self, response: Any):
         """Handle individual events from Gemini."""
         try:
+            # Handle input audio transcription (user speech)
+            if hasattr(response, 'server_content') and hasattr(response.server_content, 'input_transcription'):
+                input_transcription = response.server_content.input_transcription
+                if hasattr(input_transcription, 'text') and input_transcription.text:
+                    logger.info(f"🎤 User transcript chunk: {input_transcription.text}")
+                    # Accumulate user transcript chunks instead of sending immediately
+                    self._user_transcript_accumulator += input_transcription.text
+            
+            # Handle output audio transcription (assistant speech)
+            if hasattr(response, 'server_content') and hasattr(response.server_content, 'output_transcription'):
+                output_transcription = response.server_content.output_transcription
+                logger.debug(f"🔍 output_transcription object: {output_transcription}")
+                if hasattr(output_transcription, 'text'):
+                    text_value = output_transcription.text
+                    logger.info(f"🤖 Assistant transcript chunk ({len(text_value) if text_value else 0} chars): {text_value}")
+                    if text_value:
+                        # Just accumulate, don't send yet - we'll send the complete transcript on turn_complete
+                        self._assistant_transcript_accumulator += output_transcription.text
+                        logger.info(f"📝 Accumulated assistant transcript: {len(self._assistant_transcript_accumulator)} chars total")
+                else:
+                    logger.warning(f"⚠️ output_transcription has no 'text' attribute: {dir(output_transcription)}")
+            
             # Gemini Live API returns different types of responses
             # Check for server content (audio/text response)
             if hasattr(response, 'server_content'):
                 server_content = response.server_content
+                logger.info(f"📦 Processing server_content: turn_complete={getattr(server_content, 'turn_complete', None)}, has_model_turn={hasattr(server_content, 'model_turn')}, has_input_transcription={hasattr(server_content, 'input_transcription')}, has_output_transcription={hasattr(server_content, 'output_transcription')}")
                 
                 # Handle turn complete (user input processed)
                 if hasattr(server_content, 'turn_complete') and server_content.turn_complete:
-                    logger.info("User turn complete")
+                    logger.info("✅ Turn complete")
                     
-                    # If there's accumulated text, send it as user transcript
-                    if hasattr(server_content, 'model_turn') and server_content.model_turn:
-                        # Extract user transcript from model turn parts
-                        for part in server_content.model_turn.parts:
-                            if hasattr(part, 'text') and part.text:
-                                # This is the user's transcribed speech
-                                if self._on_transcript:
-                                    user_speech_timestamp = self._user_audio_timestamp or datetime.utcnow()
-                                    await self._on_transcript(part.text, MessageRole.USER.value, user_speech_timestamp)
+                    # Send accumulated user transcript when turn is complete
+                    if self._user_transcript_accumulator and self._on_transcript:
+                        user_speech_timestamp = self._user_audio_timestamp or datetime.utcnow()
+                        logger.info(f"📤 Sending user transcript: {self._user_transcript_accumulator}")
+                        await self._on_transcript(
+                            self._user_transcript_accumulator, 
+                            MessageRole.USER.value, 
+                            user_speech_timestamp
+                        )
+                        # Reset user accumulator for next turn
+                        self._user_transcript_accumulator = ""
                 
                 # Handle model turn (AI response)
                 if hasattr(server_content, 'model_turn') and server_content.model_turn:
                     model_turn = server_content.model_turn
+                    logger.info(f"🤖 Processing model_turn with {len(model_turn.parts)} parts")
                     
                     # Process each part of the model turn
-                    for part in model_turn.parts:
-                        # Handle text response (transcript)
+                    for idx, part in enumerate(model_turn.parts):
+                        text_value = getattr(part, 'text', None)
+                        text_len = len(text_value) if text_value else 0
+                        logger.info(f"📄 Part {idx}: has_text={hasattr(part, 'text')}, text_length={text_len}, has_inline_data={hasattr(part, 'inline_data')}")
+                        
+                        # NOTE: We do NOT use part.text for transcriptions because Gemini sends
+                        # its internal "thinking" there (e.g., "**Acknowledge and Engage**...")
+                        # Instead, we rely on output_transcription for the actual spoken text
                         if hasattr(part, 'text') and part.text:
-                            # Accumulate text for complete transcript
-                            self._assistant_transcript_accumulator += part.text
+                            logger.debug(f"📝 Model turn text (internal thinking, not used): {part.text[:100]}...")
                             
                         # Handle inline audio data
                         if hasattr(part, 'inline_data') and part.inline_data:
@@ -319,14 +419,16 @@ class GeminiVoiceService(VoiceServiceInterface):
                             if hasattr(inline_data, 'data') and inline_data.data:
                                 audio_data = inline_data.data
                                 if self._on_audio_chunk:
-                                    logger.debug(f"Received audio chunk: {len(audio_data)} bytes")
+                                    logger.info(f"🔊 Received audio chunk: {len(audio_data)} bytes")
                                     await self._on_audio_chunk(audio_data)
                 
                 # Handle turn complete for assistant (response finished)
                 if hasattr(server_content, 'turn_complete') and server_content.turn_complete:
+                    logger.info(f"🏁 Turn complete - accumulated transcript length: {len(self._assistant_transcript_accumulator)}")
                     # Send accumulated transcript as complete assistant response
                     if self._assistant_transcript_accumulator and self._on_transcript:
                         ai_response_timestamp = datetime.utcnow()
+                        logger.info(f"📤 Sending assistant transcript: {self._assistant_transcript_accumulator[:100]}...")
                         await self._on_transcript(
                             self._assistant_transcript_accumulator, 
                             MessageRole.ASSISTANT.value, 
@@ -338,15 +440,18 @@ class GeminiVoiceService(VoiceServiceInterface):
                     # Trigger audio complete callback
                     if self._on_audio_complete:
                         try:
+                            logger.info("🎬 Calling audio complete callback")
                             await self._on_audio_complete()
                         except Exception as e:
                             logger.error(f"Error in audio complete callback: {e}")
+            else:
+                logger.warning(f"⚠️ Event has no server_content attribute. Type: {type(response).__name__}, attributes: {dir(response)}")
             
             # Handle tool calls or other response types if needed
             # (Future extension point)
                 
         except Exception as e:
-            logger.error(f"Error handling Gemini event: {e}")
+            logger.error(f"Error handling Gemini event: {e}", exc_info=True)
             if self._on_error:
                 await self._on_error(f"Event handling error: {str(e)}")
     
