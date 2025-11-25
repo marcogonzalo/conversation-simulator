@@ -54,6 +54,8 @@ class GeminiVoiceService(VoiceServiceInterface):
         # VAD mode configuration (internal defaults)
         from src.shared.infrastructure.config.ai_defaults import GEMINI_VOICE_DEFAULTS
         self._vad_mode = GEMINI_VOICE_DEFAULTS.vad_mode
+        self._temperature = GEMINI_VOICE_DEFAULTS.temperature
+        self._max_tokens = GEMINI_VOICE_DEFAULTS.max_tokens
         # Derive streaming behavior from VAD mode
         self._use_streaming = (self._vad_mode == "auto")
         

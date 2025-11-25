@@ -48,7 +48,7 @@ class APIConfig:
         self.ai_max_tokens = int(os.getenv("AI_MAX_TOKENS", "1000"))
         
         # Voice-to-Voice model settings (only model names are configurable)
-        self.openai_voice_model = os.getenv("OPENAI_VOICE_MODEL", "4o-mini-realtime-preview")
+        self.openai_voice_model = os.getenv("OPENAI_VOICE_MODEL", "gpt-5-mini-2025-08-07")
         # Gemini Live API only supports gemini-2.0-flash-exp (experimental real-time model)
         self.gemini_voice_model = os.getenv("GEMINI_VOICE_MODEL", "gemini-2.5-flash-native-audio-preview-09-2025")
         
