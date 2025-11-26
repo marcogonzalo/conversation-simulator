@@ -10,8 +10,8 @@ class TestOpenAIVoiceApplicationService:
     
     def test_service_can_be_imported(self):
         """Test that service can be imported"""
-        from src.conversation.application.services.openai_voice_conversation_service import OpenAIVoiceConversationService
-        assert OpenAIVoiceConversationService is not None
+        from src.conversation.application.services.voice_conversation_service import VoiceConversationService
+        assert VoiceConversationService is not None
     
     # =========================================================================
     # RECONSTRUCTED: Additional application service tests

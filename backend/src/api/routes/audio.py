@@ -68,22 +68,3 @@ async def get_available_voices(
     except Exception as e:
         logger.error(f"Get voices error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
-@router.get("/voices/persona/{accent}")
-async def get_voice_for_persona(
-    accent: str,
-    voice_service: OpenAIVoiceApplicationService = Depends(get_voice_service)
-):
-    """Get appropriate voice for persona accent."""
-    try:
-        voice = voice_service.get_voice_for_persona(accent)
-        return {
-            "voice_id": voice,
-            "accent": accent,
-            "name": voice.title(),
-            "language": "spanish"
-        }
-        
-    except Exception as e:
-        logger.error(f"Get voice for persona error: {e}")
-        raise HTTPException(status_code=500, detail=str(e))

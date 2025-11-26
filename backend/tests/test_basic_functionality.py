@@ -25,8 +25,8 @@ def test_api_config_import():
 
 def test_conversation_service_can_be_imported():
     """Test conversation service can be imported"""
-    from src.conversation.application.services.openai_voice_conversation_service import OpenAIVoiceConversationService
-    assert OpenAIVoiceConversationService is not None
+    from src.conversation.application.services.voice_conversation_service import VoiceConversationService
+    assert VoiceConversationService is not None
 
 
 def test_audio_service_can_be_imported():

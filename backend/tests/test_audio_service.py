@@ -44,7 +44,8 @@ class TestOpenAIVoiceService:
     @pytest.mark.asyncio
     async def test_send_audio_not_connected(self, voice_service):
         """Test audio sending when not connected."""
-        voice_service.is_connected = False
+        # Set the private attribute since is_connected is now a read-only property
+        voice_service._is_connected = False
         
         audio_data = b"mock audio data"
         result = await voice_service.send_audio(audio_data)

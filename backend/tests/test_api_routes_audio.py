@@ -14,7 +14,6 @@ def mock_voice_service():
     """Create mock voice service"""
     service = Mock()
     service.is_healthy = AsyncMock(return_value=True)
-    service.get_voice_for_persona = Mock(return_value="nova")
     return service
 
 
@@ -130,78 +129,4 @@ class TestVoicesEndpoint:
         response = client.get("/api/v1/audio/voices")
         # Should succeed with hardcoded data
         assert response.status_code == 200
-
-
-class TestVoiceForPersonaEndpoint:
-    """Tests for /voices/persona/{accent} endpoint"""
-    
-    def test_voice_for_caribbean_accent(self, app, mock_voice_service):
-        """Test getting voice for Caribbean accent"""
-        mock_voice_service.get_voice_for_persona.return_value = "nova"
-        client = TestClient(app)
-        
-        response = client.get("/api/v1/audio/voices/persona/caribbean")
-        
-        assert response.status_code == 200
-        data = response.json()
-        assert data["voice_id"] == "nova"
-        assert data["accent"] == "caribbean"
-    
-    def test_voice_for_venezuelan_accent(self, app, mock_voice_service):
-        """Test getting voice for Venezuelan accent"""
-        mock_voice_service.get_voice_for_persona.return_value = "echo"
-        client = TestClient(app)
-        
-        response = client.get("/api/v1/audio/voices/persona/venezuelan")
-        
-        data = response.json()
-        assert data["voice_id"] == "echo"
-        assert data["accent"] == "venezuelan"
-    
-    def test_voice_for_peruvian_accent(self, app, mock_voice_service):
-        """Test getting voice for Peruvian accent"""
-        mock_voice_service.get_voice_for_persona.return_value = "shimmer"
-        client = TestClient(app)
-        
-        response = client.get("/api/v1/audio/voices/persona/peruvian")
-        
-        data = response.json()
-        assert data["voice_id"] == "shimmer"
-    
-    def test_voice_response_structure(self, app, mock_voice_service):
-        """Test voice response has all required fields"""
-        mock_voice_service.get_voice_for_persona.return_value = "alloy"
-        client = TestClient(app)
-        
-        response = client.get("/api/v1/audio/voices/persona/neutral")
-        
-        data = response.json()
-        assert "voice_id" in data
-        assert "accent" in data
-        assert "name" in data
-        assert "language" in data
-    
-    def test_voice_includes_language(self, client):
-        """Test voice response includes language field"""
-        response = client.get("/api/v1/audio/voices/persona/test")
-        
-        data = response.json()
-        assert data["language"] == "spanish"
-    
-    def test_voice_error_handling(self, app, mock_voice_service):
-        """Test error handling for voice endpoint"""
-        mock_voice_service.get_voice_for_persona.side_effect = Exception("Service error")
-        client = TestClient(app)
-        
-        response = client.get("/api/v1/audio/voices/persona/test")
-        
-        assert response.status_code == 500
-    
-    def test_voice_accent_parameter_passed(self, app, mock_voice_service):
-        """Test that accent parameter is passed to service"""
-        client = TestClient(app)
-        
-        client.get("/api/v1/audio/voices/persona/custom_accent")
-        
-        mock_voice_service.get_voice_for_persona.assert_called_once_with("custom_accent")
 

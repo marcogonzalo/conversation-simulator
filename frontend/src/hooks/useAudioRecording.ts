@@ -103,9 +103,9 @@ export function useAudioRecording({ onAudioReady, isWaitingForResponse, isEnding
       dataArrayRef.current = new Uint8Array(bufferLength)
       
       // Dual threshold strategy to handle sustained vowels:
-      // - HIGH threshold (20) to START detection (prevents feedback from playback)
+      // - HIGH threshold (15) to START detection (prevents false positives from ambient noise)
       // - LOW threshold (5) to MAINTAIN detection (allows sustained low-volume vowels)
-      const VAD_THRESHOLD_HIGH = 20  // Fixed threshold for starting detection
+      const VAD_THRESHOLD_HIGH = 15  // Fixed threshold for starting detection (balanced for noise rejection)
       const VAD_THRESHOLD_LOW = 5    // Fixed threshold for maintaining detection
       const SILENCE_DURATION_THRESHOLD = performanceConfig.silenceDuration
       let vadLogCounter = 0
